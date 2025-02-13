@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import prod.individual.sirnilin.models.CampaignModel;
 import prod.individual.sirnilin.models.TargetModel;
 import prod.individual.sirnilin.models.request.CampaignCreateRequest;
+import prod.individual.sirnilin.models.request.CampaignUpdateRequest;
 import prod.individual.sirnilin.repositories.AdvertiserRepository;
 import prod.individual.sirnilin.repositories.CampaignRepository;
 
@@ -61,6 +62,48 @@ public class CampaignService {
         campaign.setStartDate(request.getStartDate());
         campaign.setEndDate(request.getEndDate());
         campaign.setTargeting(target);
+
+        return campaignRepository.save(campaign);
+    }
+
+    public CampaignModel getCampaign(UUID campaignId) {
+        return campaignRepository.findByCampaignId(campaignId)
+                .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
+    }
+
+    public CampaignModel updateCampaign(CampaignUpdateRequest request, UUID campaignId, UUID advertiserId) {
+        CampaignModel campaign = campaignRepository.findByCampaignId(campaignId)
+                .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
+
+        if (!campaign.getAdvertiserId().equals(advertiserId)) {
+            throw new IllegalArgumentException("Advertiser does not have access to this campaign");
+        }
+
+        TargetModel target = request.getTargeting();
+
+        if (target != null) {
+            if (target.getAgeFrom() != null &&
+                    target.getAgeTo() != null &&
+                    target.getAgeFrom() > target.getAgeTo()
+            ) {
+                throw new IllegalArgumentException("Age from cannot be greater than age to");
+            }
+
+            campaign.setTargeting(target);
+        }
+
+        if (request.getCostPerImpression() != null) {
+            campaign.setCostPerImpression(request.getCostPerImpression());
+        }
+        if (request.getCostPerClick() != null) {
+            campaign.setCostPerClick(request.getCostPerClick());
+        }
+        if (request.getAdTitle() != null) {
+            campaign.setAdTitle(request.getAdTitle());
+        }
+        if (request.getAdText() != null) {
+            campaign.setAdText(request.getAdText());
+        }
 
         return campaignRepository.save(campaign);
     }

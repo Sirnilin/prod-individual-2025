@@ -6,7 +6,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import prod.individual.sirnilin.models.AdvertiserModel;
+import prod.individual.sirnilin.models.CampaignModel;
 import prod.individual.sirnilin.models.request.CampaignCreateRequest;
+import prod.individual.sirnilin.models.request.CampaignUpdateRequest;
 import prod.individual.sirnilin.models.request.MlScoreRequest;
 import prod.individual.sirnilin.services.AdvertiserService;
 import prod.individual.sirnilin.services.CampaignService;
@@ -70,6 +72,42 @@ public class AdvertiserController {
         } catch (IllegalArgumentException e) {
             HashMap<String, String> errorResponse = new HashMap<>();
             errorResponse.put("message", "Create campaign failed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    @GetMapping("/{advertiserId}/campaigns/{campaignId}")
+    public ResponseEntity<?> getCampaign(@PathVariable String advertiserId, @PathVariable String campaignId) {
+        try {
+            UUID advertiserUuid = UUID.fromString(advertiserId);
+            UUID campaignUuid = UUID.fromString(campaignId);
+
+            CampaignModel campaign = campaignService.getCampaign(campaignUuid);
+
+            if (!campaign.getAdvertiserId().equals(advertiserUuid)) {
+                HashMap<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("message", "Advertiser does not have access to this campaign");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+            }
+
+            return ResponseEntity.ok(campaign);
+        } catch (IllegalArgumentException e) {
+            HashMap<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("message", "Get campaign failed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    @PutMapping("/{advertiserId}/campaigns/{campaignId}")
+    public ResponseEntity<?> updateCampaign(@Valid @RequestBody CampaignUpdateRequest request, @PathVariable String advertiserId, @PathVariable String campaignId) {
+        try {
+            UUID advertiserUuid = UUID.fromString(advertiserId);
+            UUID campaignUuid = UUID.fromString(campaignId);
+
+            return ResponseEntity.ok(campaignService.updateCampaign(request, campaignUuid, advertiserUuid));
+        } catch (IllegalArgumentException e) {
+            HashMap<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("message", "Update campaign failed: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
     }
