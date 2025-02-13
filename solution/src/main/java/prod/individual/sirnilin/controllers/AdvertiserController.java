@@ -6,8 +6,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import prod.individual.sirnilin.models.AdvertiserModel;
+import prod.individual.sirnilin.models.request.CampaignCreateRequest;
 import prod.individual.sirnilin.models.request.MlScoreRequest;
 import prod.individual.sirnilin.services.AdvertiserService;
+import prod.individual.sirnilin.services.CampaignService;
 import prod.individual.sirnilin.services.MlScoreService;
 
 import java.util.HashMap;
@@ -20,7 +22,7 @@ import java.util.UUID;
 public class AdvertiserController {
 
     final private AdvertiserService advertiserService;
-    final private MlScoreService mlScoreService;
+    final private CampaignService campaignService;
 
     @PostMapping("/bulk")
     public ResponseEntity<?> bulkInsert(@Valid @RequestBody List<AdvertiserModel> advertiserModels) {
@@ -54,19 +56,20 @@ public class AdvertiserController {
         }
     }
 
-    @PostMapping("/ml-scores")
-    public ResponseEntity<?> saveMlScore(@Valid @RequestBody MlScoreRequest mlScoreRequest) {
+    @PostMapping("/{advertiserId}/campaigns")
+    public ResponseEntity<?> createCampaign(@Valid @RequestBody CampaignCreateRequest request, @PathVariable String advertiserId) {
         try {
-            if (mlScoreService.saveScore(mlScoreRequest.getAdvertiserId(), mlScoreRequest.getClientId(), mlScoreRequest.getScore()) == null) {
+            UUID uuid = UUID.fromString(advertiserId);
+            if (advertiserService.getAdvertiserById(uuid) == null) {
                 HashMap<String, String> errorResponse = new HashMap<>();
-                errorResponse.put("message", "Save ML score failed: advertiser or client not found");
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+                errorResponse.put("message", "Advertiser not found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
             }
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(mlScoreRequest);
-        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(campaignService.createCampaign(request, uuid));
+        } catch (IllegalArgumentException e) {
             HashMap<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("message", "Save ML score failed: " + e.getMessage());
+            errorResponse.put("message", "Create campaign failed: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
     }
