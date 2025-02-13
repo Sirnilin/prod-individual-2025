@@ -10,6 +10,7 @@ import prod.individual.sirnilin.models.request.CampaignUpdateRequest;
 import prod.individual.sirnilin.repositories.AdvertiserRepository;
 import prod.individual.sirnilin.repositories.CampaignRepository;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -106,5 +107,20 @@ public class CampaignService {
         }
 
         return campaignRepository.save(campaign);
+    }
+
+    public void deleteCampaign(UUID campaignId, UUID advertiserId) {
+        CampaignModel campaign = campaignRepository.findByCampaignId(campaignId)
+                .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
+
+        if (!campaign.getAdvertiserId().equals(advertiserId)) {
+            throw new IllegalArgumentException("Advertiser does not have access to this campaign");
+        }
+
+        campaignRepository.delete(campaign);
+    }
+
+    public List<CampaignModel> getCampaignsByAdvertiserId(UUID advertiserId) {
+        return campaignRepository.findByAdvertiserId(advertiserId);
     }
 }

@@ -14,6 +14,7 @@ import prod.individual.sirnilin.services.AdvertiserService;
 import prod.individual.sirnilin.services.CampaignService;
 import prod.individual.sirnilin.services.MlScoreService;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -108,6 +109,48 @@ public class AdvertiserController {
         } catch (IllegalArgumentException e) {
             HashMap<String, String> errorResponse = new HashMap<>();
             errorResponse.put("message", "Update campaign failed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    @DeleteMapping("/{advertiserId}/campaigns/{campaignId}")
+    public ResponseEntity<?> deleteCampaign(@PathVariable String advertiserId, @PathVariable String campaignId) {
+        try {
+            UUID advertiserUuid = UUID.fromString(advertiserId);
+            UUID campaignUuid = UUID.fromString(campaignId);
+
+            campaignService.deleteCampaign(campaignUuid, advertiserUuid);
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        } catch (IllegalArgumentException e) {
+            HashMap<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("message", "Delete campaign failed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    @GetMapping("/{advertiserId}/campaigns")
+    public ResponseEntity<?> getAllCampaignsByAdvertiser(@PathVariable String advertiserId,
+                                                         @RequestParam(value = "size", defaultValue = "10") String size,
+                                                         @RequestParam(value = "page", defaultValue = "0") String page
+    ) {
+        try {
+            UUID advertiserUuid = UUID.fromString(advertiserId);
+            List<CampaignModel> allCampaigns = campaignService.getCampaignsByAdvertiserId(advertiserUuid);
+
+            int s = Integer.parseInt(size);
+            int p = Integer.parseInt(page);
+
+            int offset = p * s;
+            if (offset > allCampaigns.size()) {
+                return ResponseEntity.ok(Collections.emptyList());
+            }
+
+            int end = Math.min(offset + s, allCampaigns.size());
+            List<CampaignModel> pagedCampaigns = allCampaigns.subList(offset, end);
+            return ResponseEntity.ok(pagedCampaigns);
+        } catch (IllegalArgumentException e) {
+            HashMap<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("message", "Get all campaigns failed: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
     }
