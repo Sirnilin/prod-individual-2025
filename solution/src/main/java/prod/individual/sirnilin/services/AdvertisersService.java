@@ -6,6 +6,7 @@ import prod.individual.sirnilin.models.AdvertisersModel;
 import prod.individual.sirnilin.repositories.AdvertisersRepository;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -27,5 +28,9 @@ public class AdvertisersService {
 
         advertisersRepository.saveAll(advertisersModels);
         return true;
+    }
+
+    public AdvertisersModel getAdvertiserById(UUID advertiserId) {
+        return advertisersRepository.findByAdvertiserId(advertiserId);
     }
 }
