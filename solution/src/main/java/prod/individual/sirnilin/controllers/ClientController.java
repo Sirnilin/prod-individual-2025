@@ -21,13 +21,14 @@ public class ClientController {
 
     @PostMapping("/bulk")
     public ResponseEntity<?> bulkInsert(@Valid @RequestBody List<ClientModel> clientModels) {
-        List<ClientModel> insertedClients = clientService.bulkInsert(clientModels);
-        if (insertedClients == null) {
+        try {
+            clientService.bulkInsert(clientModels);
+            return ResponseEntity.status(HttpStatus.CREATED).body(clientModels);
+        } catch (Exception e) {
             HashMap<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("message", "Bad request");
+            errorResponse.put("message", "Bulk insert/update failed: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
-        return ResponseEntity.status(HttpStatus.CREATED).body(insertedClients);
     }
 
     @GetMapping("/{clientId}")

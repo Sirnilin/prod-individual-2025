@@ -18,7 +18,7 @@ public class ClientService {
     public List<ClientModel> bulkInsert(List<ClientModel> clientModels) {
         for (ClientModel clientModel : clientModels) {
             if (clientModel.getGender().equals(Gender.ALL)) {
-                return null;
+                throw new IllegalArgumentException("Gender cannot be ALL");
             }
         }
         return clientRepository.saveAll(clientModels);
