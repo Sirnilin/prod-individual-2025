@@ -27,4 +27,8 @@ public class ClientService {
     public boolean clientExists(UUID clientId) {
         return clientRepository.findByClientId(clientId) != null;
     }
+
+    public ClientModel getClientById(UUID clientId) {
+        return clientRepository.findByClientId(clientId);
+    }
 }
