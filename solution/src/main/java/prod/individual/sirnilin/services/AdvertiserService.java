@@ -19,6 +19,6 @@ public class AdvertiserService {
     }
 
     public AdvertiserModel getAdvertiserById(UUID advertiserId) {
-        return advertiserRepository.findByAdvertiserId(advertiserId);
+        return advertiserRepository.findByAdvertiserId(advertiserId).orElse(null);
     }
 }

@@ -25,10 +25,10 @@ public class ClientService {
     }
 
     public boolean clientExists(UUID clientId) {
-        return clientRepository.findByClientId(clientId) != null;
+        return clientRepository.findByClientId(clientId).isPresent();
     }
 
     public ClientModel getClientById(UUID clientId) {
-        return clientRepository.findByClientId(clientId);
+        return clientRepository.findByClientId(clientId).orElse(null);
     }
 }

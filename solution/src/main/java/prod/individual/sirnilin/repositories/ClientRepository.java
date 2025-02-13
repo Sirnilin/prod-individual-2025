@@ -5,9 +5,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import prod.individual.sirnilin.models.ClientModel;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface ClientRepository extends JpaRepository<ClientModel, Long> {
-    ClientModel findByClientId(@NotNull UUID clientId);
+    Optional<ClientModel> findByClientId(@NotNull UUID clientId);
 }
