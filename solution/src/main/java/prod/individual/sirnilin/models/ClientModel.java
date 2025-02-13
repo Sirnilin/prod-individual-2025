@@ -21,7 +21,8 @@ public class ClientModel {
     private String login;
 
     @Min(0)
-    private int age;
+    @NotNull
+    private Integer age;
 
     @NotBlank
     private String location;
