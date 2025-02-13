@@ -6,7 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import prod.individual.sirnilin.models.AdvertiserModel;
-import prod.individual.sirnilin.services.AdvertisersService;
+import prod.individual.sirnilin.services.AdvertiserService;
 
 import java.util.HashMap;
 import java.util.List;
@@ -15,13 +15,13 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/advertisers")
 @RequiredArgsConstructor
-public class AdvertisersController {
+public class AdvertiserController {
 
-    final private AdvertisersService advertisersService;
+    final private AdvertiserService advertiserService;
 
     @PostMapping("/bulk")
     public ResponseEntity<?> bulkInsert(@Valid @RequestBody List<AdvertiserModel> advertiserModels) {
-        if (advertisersService.bulkInsert(advertiserModels)) {
+        if (advertiserService.bulkInsert(advertiserModels)) {
             return ResponseEntity.status(HttpStatus.CREATED).body(advertiserModels);
         } else {
             HashMap<String, String> errorResponse = new HashMap<>();
@@ -34,7 +34,7 @@ public class AdvertisersController {
     public ResponseEntity<?> getAdvertiserById(@PathVariable String advertiserId) {
         try {
             UUID uuid = UUID.fromString(advertiserId);
-            AdvertiserModel advertiser = advertisersService.getAdvertiserById(uuid);
+            AdvertiserModel advertiser = advertiserService.getAdvertiserById(uuid);
 
             if (advertiser == null) {
                 HashMap<String, String> errorResponse = new HashMap<>();

@@ -3,16 +3,16 @@ package prod.individual.sirnilin.services;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import prod.individual.sirnilin.models.AdvertiserModel;
-import prod.individual.sirnilin.repositories.AdvertisersRepository;
+import prod.individual.sirnilin.repositories.AdvertiserRepository;
 
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class AdvertisersService {
+public class AdvertiserService {
 
-    final private AdvertisersRepository advertisersRepository;
+    final private AdvertiserRepository advertiserRepository;
 
     public boolean bulkInsert(List<AdvertiserModel> advertiserModels) {
         for (AdvertiserModel model : advertiserModels) {
@@ -20,17 +20,17 @@ public class AdvertisersService {
                     model.getName().isEmpty() ||
                     model.getName().length() > 255 ||
                     model.getAdvertiserId() == null ||
-                    advertisersRepository.findByAdvertiserId(model.getAdvertiserId()) != null
+                    advertiserRepository.findByAdvertiserId(model.getAdvertiserId()) != null
             ) {
                 return false;
             }
         }
 
-        advertisersRepository.saveAll(advertiserModels);
+        advertiserRepository.saveAll(advertiserModels);
         return true;
     }
 
     public AdvertiserModel getAdvertiserById(UUID advertiserId) {
-        return advertisersRepository.findByAdvertiserId(advertiserId);
+        return advertiserRepository.findByAdvertiserId(advertiserId);
     }
 }

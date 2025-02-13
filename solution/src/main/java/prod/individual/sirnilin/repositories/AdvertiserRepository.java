@@ -8,6 +8,6 @@ import prod.individual.sirnilin.models.AdvertiserModel;
 import java.util.UUID;
 
 @Repository
-public interface AdvertisersRepository extends JpaRepository<AdvertiserModel, Long> {
+public interface AdvertiserRepository extends JpaRepository<AdvertiserModel, Long> {
    AdvertiserModel findByAdvertiserId(@NotNull UUID advertiserId);
 }
