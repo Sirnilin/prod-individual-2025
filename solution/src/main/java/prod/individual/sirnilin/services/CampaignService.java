@@ -1,6 +1,7 @@
 package prod.individual.sirnilin.services;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import prod.individual.sirnilin.models.CampaignModel;
 import prod.individual.sirnilin.models.TargetModel;
@@ -16,12 +17,23 @@ public class CampaignService {
 
     final private CampaignRepository campaignRepository;
     final private AdvertiserRepository advertiserRepository;
+    final private RedisTemplate<String, Object> redisTemplate;
 
     public CampaignModel createCampaign(CampaignCreateRequest request, UUID advertiserId) {
         CampaignModel campaign = new CampaignModel();
 
         if (advertiserRepository.findByAdvertiserId(advertiserId).isEmpty()) {
             throw new IllegalArgumentException("Advertiser not found");
+        }
+
+        Integer currentDate = (Integer) redisTemplate.opsForValue().get("currentDate");
+
+        if (currentDate == null) {
+            currentDate = 0;
+        }
+
+        if (request.getStartDate() < currentDate || request.getEndDate() < currentDate) {
+            throw new IllegalArgumentException("Start date and end date cannot be less than current date");
         }
 
         if (request.getStartDate() > request.getEndDate()) {

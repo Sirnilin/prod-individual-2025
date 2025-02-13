@@ -23,8 +23,16 @@ services:
       POSTGRES_USERNAME: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_JDBC_URL: jdbc:postgresql://prod-database:5432/postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     depends_on:
       - prod-database
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
 
 volumes:
   pgdata:

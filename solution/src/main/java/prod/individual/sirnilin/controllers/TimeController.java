@@ -2,6 +2,7 @@ package prod.individual.sirnilin.controllers;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -17,11 +18,14 @@ import prod.individual.sirnilin.repositories.TimeRepository;
 public class TimeController {
 
     final private TimeRepository timeRepository;
+    final private RedisTemplate<String, Object> redisTemplate;
 
     @PostMapping("/advance")
     private ResponseEntity<?> updateCurrentDate(@Valid @RequestBody TimeRequest timeRequest) {
         TimeModel timeModel = timeRepository.findById(1l).orElse(new TimeModel());
         timeModel.setCurrentDate(timeRequest.getCurrentDate());
-        return ResponseEntity.ok().body(timeRepository.save(timeModel));
+        timeRepository.save(timeModel);
+        redisTemplate.opsForValue().set("currentDate", timeRequest.getCurrentDate());
+        return ResponseEntity.ok().body(timeModel);
     }
 }
