@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import prod.individual.sirnilin.models.AdvertisersModel;
+import prod.individual.sirnilin.models.AdvertiserModel;
 import prod.individual.sirnilin.services.AdvertisersService;
 
 import java.util.HashMap;
@@ -20,9 +20,9 @@ public class AdvertisersController {
     final private AdvertisersService advertisersService;
 
     @PostMapping("/bulk")
-    public ResponseEntity<?> bulkInsert(@Valid @RequestBody List<AdvertisersModel> advertisersModels) {
-        if (advertisersService.bulkInsert(advertisersModels)) {
-            return ResponseEntity.status(HttpStatus.CREATED).body(advertisersModels);
+    public ResponseEntity<?> bulkInsert(@Valid @RequestBody List<AdvertiserModel> advertiserModels) {
+        if (advertisersService.bulkInsert(advertiserModels)) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(advertiserModels);
         } else {
             HashMap<String, String> errorResponse = new HashMap<>();
             errorResponse.put("message", "Bulk insert failed");
@@ -34,7 +34,7 @@ public class AdvertisersController {
     public ResponseEntity<?> getAdvertiserById(@PathVariable String advertiserId) {
         try {
             UUID uuid = UUID.fromString(advertiserId);
-            AdvertisersModel advertiser = advertisersService.getAdvertiserById(uuid);
+            AdvertiserModel advertiser = advertisersService.getAdvertiserById(uuid);
 
             if (advertiser == null) {
                 HashMap<String, String> errorResponse = new HashMap<>();

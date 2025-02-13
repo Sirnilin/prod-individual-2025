@@ -11,7 +11,7 @@ import java.util.UUID;
 @Data
 @Entity
 @Table(name = "advertisers")
-public class AdvertisersModel {
+public class AdvertiserModel {
 
     @Id
     @JsonProperty("advertiser_id")

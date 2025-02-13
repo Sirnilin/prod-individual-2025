@@ -2,7 +2,7 @@ package prod.individual.sirnilin.services;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import prod.individual.sirnilin.models.AdvertisersModel;
+import prod.individual.sirnilin.models.AdvertiserModel;
 import prod.individual.sirnilin.repositories.AdvertisersRepository;
 
 import java.util.List;
@@ -14,8 +14,8 @@ public class AdvertisersService {
 
     final private AdvertisersRepository advertisersRepository;
 
-    public boolean bulkInsert(List<AdvertisersModel> advertisersModels) {
-        for (AdvertisersModel model : advertisersModels) {
+    public boolean bulkInsert(List<AdvertiserModel> advertiserModels) {
+        for (AdvertiserModel model : advertiserModels) {
             if (model.getName() == null ||
                     model.getName().isEmpty() ||
                     model.getName().length() > 255 ||
@@ -26,11 +26,11 @@ public class AdvertisersService {
             }
         }
 
-        advertisersRepository.saveAll(advertisersModels);
+        advertisersRepository.saveAll(advertiserModels);
         return true;
     }
 
-    public AdvertisersModel getAdvertiserById(UUID advertiserId) {
+    public AdvertiserModel getAdvertiserById(UUID advertiserId) {
         return advertisersRepository.findByAdvertiserId(advertiserId);
     }
 }
