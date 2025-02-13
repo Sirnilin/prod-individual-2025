@@ -21,11 +21,12 @@ public class AdvertiserController {
 
     @PostMapping("/bulk")
     public ResponseEntity<?> bulkInsert(@Valid @RequestBody List<AdvertiserModel> advertiserModels) {
-        if (advertiserService.bulkInsert(advertiserModels)) {
+        try {
+            advertiserService.bulkInsert(advertiserModels);
             return ResponseEntity.status(HttpStatus.CREATED).body(advertiserModels);
-        } else {
+        } catch (Exception e) {
             HashMap<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("message", "Bulk insert failed");
+            errorResponse.put("message", "Bulk insert/update failed: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
     }

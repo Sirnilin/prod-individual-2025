@@ -16,6 +16,7 @@ public class AdvertiserModel {
     @Id
     @JsonProperty("advertiser_id")
     @NotNull
+    @Column(unique = true)
     private UUID advertiserId;
 
     @NotBlank

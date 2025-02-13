@@ -14,20 +14,8 @@ public class AdvertiserService {
 
     final private AdvertiserRepository advertiserRepository;
 
-    public boolean bulkInsert(List<AdvertiserModel> advertiserModels) {
-        for (AdvertiserModel model : advertiserModels) {
-            if (model.getName() == null ||
-                    model.getName().isEmpty() ||
-                    model.getName().length() > 255 ||
-                    model.getAdvertiserId() == null ||
-                    advertiserRepository.findByAdvertiserId(model.getAdvertiserId()) != null
-            ) {
-                return false;
-            }
-        }
-
+    public void bulkInsert(List<AdvertiserModel> advertiserModels) {
         advertiserRepository.saveAll(advertiserModels);
-        return true;
     }
 
     public AdvertiserModel getAdvertiserById(UUID advertiserId) {

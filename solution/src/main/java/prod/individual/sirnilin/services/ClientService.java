@@ -17,7 +17,7 @@ public class ClientService {
 
     public List<ClientModel> bulkInsert(List<ClientModel> clientModels) {
         for (ClientModel clientModel : clientModels) {
-            if (clientExists(clientModel.getClientId()) || clientModel.getGender().equals(Gender.ALL)) {
+            if (clientModel.getGender().equals(Gender.ALL)) {
                 return null;
             }
         }
