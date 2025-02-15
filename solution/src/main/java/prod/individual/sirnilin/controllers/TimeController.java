@@ -21,7 +21,7 @@ public class TimeController {
     final private RedisTemplate<String, Object> redisTemplate;
 
     @PostMapping("/advance")
-    private ResponseEntity<?> updateCurrentDate(@Valid @RequestBody TimeRequest timeRequest) {
+    public ResponseEntity<?> updateCurrentDate(@Valid @RequestBody TimeRequest timeRequest) {
         TimeModel timeModel = timeRepository.findById(1l).orElse(new TimeModel());
         timeModel.setCurrentDate(timeRequest.getCurrentDate());
         timeRepository.save(timeModel);
