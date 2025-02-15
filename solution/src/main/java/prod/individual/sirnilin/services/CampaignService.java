@@ -42,6 +42,10 @@ public class CampaignService {
             throw new IllegalArgumentException("Start date cannot be greater than end date");
         }
 
+        if (request.getImpressionsLimit() < request.getClicksLimit()) {
+            throw new IllegalArgumentException("Impressions limit cannot be less than clicks limit");
+        }
+
         TargetModel target = request.getTargeting();
 
         if (target != null) {
