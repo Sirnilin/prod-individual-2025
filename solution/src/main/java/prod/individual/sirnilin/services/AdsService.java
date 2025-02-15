@@ -4,10 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import prod.individual.sirnilin.models.*;
-import prod.individual.sirnilin.repositories.CampaignRepository;
-import prod.individual.sirnilin.repositories.ClientRepository;
-import prod.individual.sirnilin.repositories.MlScoreRepository;
-import prod.individual.sirnilin.repositories.TimeRepository;
+import prod.individual.sirnilin.repositories.*;
 
 import java.util.List;
 import java.util.UUID;
@@ -21,12 +18,20 @@ public class AdsService {
     final private MlScoreRepository mlScoreRepository;
     final private RedisTemplate<String, Object> redisTemplate;
     final private TimeRepository timeRepository;
+    final private HistoryImpressionsRepository historyImpressionsRepository;
+    final private HistoryClicksRepository historyClicksRepository;
 
     public CampaignModel getAds(UUID clientId) {
         ClientModel client = clientRepository.findByClientId(clientId)
                 .orElseThrow(() -> new IllegalArgumentException("Client not found"));
 
-        List<CampaignModel> matchingAds = getMatchingAds(client);
+        Integer currentDate = (Integer) redisTemplate.opsForValue().get("currentDate");
+
+        if (currentDate == null) {
+            currentDate = timeRepository.findById(1l).orElse(new TimeModel()).getCurrentDate();
+        }
+
+        List<CampaignModel> matchingAds = getMatchingAds(client, currentDate);
 
         if (matchingAds.isEmpty()) {
             return null;
@@ -36,17 +41,37 @@ public class AdsService {
 
         bestCampaign.setCountImpressions(bestCampaign.getCountImpressions() + 1);
 
+        HistoryImpressionsModel historyImpressions = new HistoryImpressionsModel(clientId,
+                bestCampaign.getCampaignId(),
+                currentDate
+        );
+        historyImpressionsRepository.save(historyImpressions);
+
         return campaignRepository.save(bestCampaign);
     }
 
-    private List<CampaignModel> getMatchingAds(ClientModel client) {
+    public void adsClick (UUID clientId, UUID campaignId) {
         Integer currentDate = (Integer) redisTemplate.opsForValue().get("currentDate");
 
         if (currentDate == null) {
             currentDate = timeRepository.findById(1l).orElse(new TimeModel()).getCurrentDate();
         }
 
-        Integer finalCurrentDate = currentDate;
+        CampaignModel campaign = campaignRepository.findByCampaignId(campaignId)
+                .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
+
+        HistoryImpressionsModel historyImpressions = historyImpressionsRepository.findByClientIdAndCampaignId(clientId, campaignId)
+                .orElseThrow(() -> new IllegalArgumentException("Impression not found"));
+
+        HistoryClicksModel historyClicks = new HistoryClicksModel(clientId, campaignId, currentDate);
+        historyClicksRepository.save(historyClicks);
+
+        campaign.setCountClicks(campaign.getCountClicks() + 1);
+        campaignRepository.save(campaign);
+    }
+
+    private List<CampaignModel> getMatchingAds(ClientModel client, Integer finalCurrentDate) {
+
         return campaignRepository.findAll()
                 .stream()
                 .filter(campaign -> {
