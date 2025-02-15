@@ -4,10 +4,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import prod.individual.sirnilin.models.*;
+import prod.individual.sirnilin.models.resonse.StatisticResponse;
 import prod.individual.sirnilin.repositories.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +47,7 @@ public class AdsService {
 
         HistoryImpressionsModel historyImpressions = new HistoryImpressionsModel(clientId,
                 bestCampaign.getCampaignId(),
+                bestCampaign.getAdvertiserId(),
                 currentDate
         );
         historyImpressionsRepository.save(historyImpressions);
@@ -63,11 +68,153 @@ public class AdsService {
         HistoryImpressionsModel historyImpressions = historyImpressionsRepository.findByClientIdAndCampaignId(clientId, campaignId)
                 .orElseThrow(() -> new IllegalArgumentException("Impression not found"));
 
-        HistoryClicksModel historyClicks = new HistoryClicksModel(clientId, campaignId, currentDate);
+        HistoryClicksModel historyClicks = new HistoryClicksModel(clientId,
+                campaignId,
+                campaign.getAdvertiserId(),
+                currentDate
+        );
         historyClicksRepository.save(historyClicks);
 
         campaign.setCountClicks(campaign.getCountClicks() + 1);
         campaignRepository.save(campaign);
+    }
+
+    public StatisticResponse getCampaignStatistic(UUID campaignId) {
+        CampaignModel campaign = campaignRepository.findByCampaignId(campaignId)
+                .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
+
+        List<HistoryImpressionsModel> historyImpressions = historyImpressionsRepository.findByCampaignId(campaignId);
+        List<HistoryClicksModel> historyClicks = historyClicksRepository.findByCampaignId(campaignId);
+
+        StatisticResponse statistic = new StatisticResponse();
+
+        statistic.setImpressionsCount(historyImpressions.size());
+        statistic.setClicksCount(historyClicks.size());
+        statistic.setConversion((float) (historyClicks.size() / historyImpressions.size())*100);
+        statistic.setSpentImpressions(campaign.getCostPerImpression()*historyImpressions.size());
+        statistic.setSpentClicks(campaign.getCostPerClick()*historyClicks.size());
+        statistic.setSpentTotal(statistic.getSpentImpressions() + statistic.getSpentClicks());
+
+        return statistic;
+    }
+
+    public List<StatisticResponse> getCampaignStatisticDaily(UUID campaignId) {
+        CampaignModel campaign = campaignRepository.findByCampaignId(campaignId)
+                .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
+
+        List<HistoryImpressionsModel> historyImpressions = historyImpressionsRepository.findByCampaignId(campaignId);
+        List<HistoryClicksModel> historyClicks = historyClicksRepository.findByCampaignId(campaignId);
+
+        Map<Integer, StatisticResponse> dailyHistoryMap = new HashMap<>();
+
+        for (HistoryImpressionsModel impression : historyImpressions) {
+            int date = impression.getDate();
+            dailyHistoryMap.putIfAbsent(date, new StatisticResponse());
+            StatisticResponse history = dailyHistoryMap.get(date);
+            history.setImpressionsCount(history.getImpressionsCount() == null ? 1 : history.getImpressionsCount() + 1);
+            history.setSpentImpressions(campaign.getCostPerImpression() * history.getImpressionsCount());
+        }
+
+        for (HistoryClicksModel click : historyClicks) {
+            int date = click.getDate();
+            dailyHistoryMap.putIfAbsent(date, new StatisticResponse());
+            StatisticResponse history = dailyHistoryMap.get(date);
+            history.setClicksCount(history.getClicksCount() == null ? 1 : history.getClicksCount() + 1);
+            history.setSpentClicks(campaign.getCostPerClick() * history.getClicksCount());
+        }
+
+        for (StatisticResponse history : dailyHistoryMap.values()) {
+            history.setConversion((float) (history.getClicksCount() / history.getImpressionsCount()) * 100);
+            history.setSpentTotal(history.getSpentImpressions() + history.getSpentClicks());
+        }
+
+        return dailyHistoryMap.entrySet().stream()
+                .map(entry -> {
+                    StatisticResponse history = entry.getValue();
+                    history.setDate(entry.getKey());
+                    return history;
+                })
+                .collect(Collectors.toList());
+    }
+
+    public StatisticResponse getAdvertiserStatistic(UUID advertiserId) {
+        List<CampaignModel> campaigns = campaignRepository.findByAdvertiserId(advertiserId);
+
+        List<HistoryImpressionsModel> historyImpressions = historyImpressionsRepository.findByAdvertiserId(advertiserId);
+        List<HistoryClicksModel> historyClicks = historyClicksRepository.findByAdvertiserId(advertiserId);
+
+        StatisticResponse statistic = new StatisticResponse();
+
+        int totalImpressions = historyImpressions.size();
+        int totalClicks = historyClicks.size();
+        float totalSpentImpressions = 0;
+        float totalSpentClicks = 0;
+
+        for (CampaignModel campaign : campaigns) {
+            totalSpentImpressions += campaign.getCostPerImpression() * historyImpressions.stream()
+                    .filter(impression -> impression.getCampaignId().equals(campaign.getCampaignId()))
+                    .count();
+            totalSpentClicks += campaign.getCostPerClick() * historyClicks.stream()
+                    .filter(click -> click.getCampaignId().equals(campaign.getCampaignId()))
+                    .count();
+        }
+
+        statistic.setImpressionsCount(totalImpressions);
+        statistic.setClicksCount(totalClicks);
+        statistic.setConversion((float) totalClicks / totalImpressions * 100);
+        statistic.setSpentImpressions(totalSpentImpressions);
+        statistic.setSpentClicks(totalSpentClicks);
+        statistic.setSpentTotal(totalSpentImpressions + totalSpentClicks);
+
+        return statistic;
+    }
+
+    public List<StatisticResponse> getAdvertiserStatisticDaily(UUID advertiserId) {
+        List<CampaignModel> campaigns = campaignRepository.findByAdvertiserId(advertiserId);
+
+        List<HistoryImpressionsModel> historyImpressions = historyImpressionsRepository.findByAdvertiserId(advertiserId);
+        List<HistoryClicksModel> historyClicks = historyClicksRepository.findByAdvertiserId(advertiserId);
+
+        Map<Integer, StatisticResponse> dailyHistoryMap = new HashMap<>();
+
+        for (HistoryImpressionsModel impression : historyImpressions) {
+            int date = impression.getDate();
+            dailyHistoryMap.putIfAbsent(date, new StatisticResponse());
+            StatisticResponse history = dailyHistoryMap.get(date);
+            history.setImpressionsCount(history.getImpressionsCount() == null ? 1 : history.getImpressionsCount() + 1);
+            history.setSpentImpressions(history.getSpentImpressions() == null ? 0 : history.getSpentImpressions());
+            for (CampaignModel campaign : campaigns) {
+                if (campaign.getCampaignId().equals(impression.getCampaignId())) {
+                    history.setSpentImpressions(history.getSpentImpressions() + campaign.getCostPerImpression());
+                }
+            }
+        }
+
+        for (HistoryClicksModel click : historyClicks) {
+            int date = click.getDate();
+            dailyHistoryMap.putIfAbsent(date, new StatisticResponse());
+            StatisticResponse history = dailyHistoryMap.get(date);
+            history.setClicksCount(history.getClicksCount() == null ? 1 : history.getClicksCount() + 1);
+            history.setSpentClicks(history.getSpentClicks() == null ? 0 : history.getSpentClicks());
+            for (CampaignModel campaign : campaigns) {
+                if (campaign.getCampaignId().equals(click.getCampaignId())) {
+                    history.setSpentClicks(history.getSpentClicks() + campaign.getCostPerClick());
+                }
+            }
+        }
+
+        for (StatisticResponse history : dailyHistoryMap.values()) {
+            history.setConversion((float) (history.getClicksCount() / history.getImpressionsCount()) * 100);
+            history.setSpentTotal(history.getSpentImpressions() + history.getSpentClicks());
+        }
+
+        return dailyHistoryMap.entrySet().stream()
+                .map(entry -> {
+                    StatisticResponse history = entry.getValue();
+                    history.setDate(entry.getKey());
+                    return history;
+                })
+                .collect(Collectors.toList());
     }
 
     private List<CampaignModel> getMatchingAds(ClientModel client, Integer finalCurrentDate) {

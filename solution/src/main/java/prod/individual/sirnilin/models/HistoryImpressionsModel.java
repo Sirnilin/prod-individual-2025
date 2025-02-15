@@ -18,13 +18,17 @@ public class HistoryImpressionsModel {
     @JsonProperty("campaign_id")
     private UUID clientId;
 
+    @JsonProperty("campaign_id")
+    private UUID campaignId;
+
     @JsonProperty("advertiser_id")
     private UUID advertiserId;
 
     private int date;
 
-    public HistoryImpressionsModel(UUID clientId, UUID advertiserId, int date) {
+    public HistoryImpressionsModel(UUID clientId, UUID campaignId, UUID advertiserId, int date) {
         this.clientId = clientId;
+        this.campaignId = campaignId;
         this.advertiserId = advertiserId;
         this.date = date;
     }
