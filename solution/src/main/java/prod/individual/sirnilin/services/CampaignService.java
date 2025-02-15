@@ -5,10 +5,12 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import prod.individual.sirnilin.models.CampaignModel;
 import prod.individual.sirnilin.models.TargetModel;
+import prod.individual.sirnilin.models.TimeModel;
 import prod.individual.sirnilin.models.request.CampaignCreateRequest;
 import prod.individual.sirnilin.models.request.CampaignUpdateRequest;
 import prod.individual.sirnilin.repositories.AdvertiserRepository;
 import prod.individual.sirnilin.repositories.CampaignRepository;
+import prod.individual.sirnilin.repositories.TimeRepository;
 
 import java.util.List;
 import java.util.UUID;
@@ -20,6 +22,7 @@ public class CampaignService {
     final private CampaignRepository campaignRepository;
     final private AdvertiserRepository advertiserRepository;
     final private RedisTemplate<String, Object> redisTemplate;
+    final private TimeRepository timeRepository;
 
     public CampaignModel createCampaign(CampaignCreateRequest request, UUID advertiserId) {
         CampaignModel campaign = new CampaignModel();
@@ -31,7 +34,7 @@ public class CampaignService {
         Integer currentDate = (Integer) redisTemplate.opsForValue().get("currentDate");
 
         if (currentDate == null) {
-            currentDate = 0;
+            currentDate = timeRepository.findById(1l).orElse(new TimeModel()).getCurrentDate();
         }
 
         if (request.getStartDate() < currentDate || request.getEndDate() < currentDate) {
