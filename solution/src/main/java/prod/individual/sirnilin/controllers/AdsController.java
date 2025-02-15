@@ -38,7 +38,7 @@ public class AdsController {
     }
 
     @GetMapping("{adId}/click")
-    public ResponseEntity<?> adsClick(@Valid @RequestBody AdsClickRequest adsClickRequest, @RequestParam("ad_id") String adId) {
+    public ResponseEntity<?> adsClick(@Valid @RequestBody AdsClickRequest adsClickRequest, @PathVariable String adId) {
         try {
             UUID adUUID = UUID.fromString(adId);
             adsService.adsClick(adsClickRequest.getClientId(), adUUID);
