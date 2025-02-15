@@ -24,4 +24,13 @@ public class MlScoreModel {
     private UUID clientId;
 
     private int score;
+
+    public MlScoreModel(UUID advertiserId, UUID clientId, int score) {
+        this.advertiserId = advertiserId;
+        this.clientId = clientId;
+        this.score = score;
+    }
+
+    public MlScoreModel() {
+    }
 }

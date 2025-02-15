@@ -1,5 +1,6 @@
 package prod.individual.sirnilin.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import jakarta.persistence.*;
@@ -70,4 +71,10 @@ public class CampaignModel {
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "target_id")
     private TargetModel targeting;
+
+    @JsonIgnore
+    private int countImpressions;
+
+    @JsonIgnore
+    private int countClicks;
 }
