@@ -23,6 +23,11 @@ public class TimeController {
     @PostMapping("/advance")
     public ResponseEntity<?> updateCurrentDate(@Valid @RequestBody TimeRequest timeRequest) {
         TimeModel timeModel = timeRepository.findById(1l).orElse(new TimeModel());
+
+        if (timeRequest.getCurrentDate() < timeModel.getCurrentDate()) {
+            return ResponseEntity.badRequest().body("Current date cannot be decreased");
+        }
+
         timeModel.setCurrentDate(timeRequest.getCurrentDate());
         timeRepository.save(timeModel);
         redisTemplate.opsForValue().set("currentDate", timeRequest.getCurrentDate());

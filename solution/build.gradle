@@ -43,6 +43,7 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     implementation 'org.springframework.boot:spring-boot-starter:3.4.2'
     implementation 'org.springframework.boot:spring-boot-starter-validation:2.7.3'
+    testImplementation 'org.mockito:mockito-core'
 }
 
 publishing {
@@ -55,11 +56,13 @@ publishing {
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+    options.compilerArgs << "-Xlint:deprecation"
 }
 
 tasks.withType(Javadoc) {
     options.encoding = 'UTF-8'
 }
+
 
 tasks.named("bootJar") {
     manifest {

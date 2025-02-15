@@ -14,10 +14,7 @@ import prod.individual.sirnilin.services.AdvertiserService;
 import prod.individual.sirnilin.services.CampaignService;
 import prod.individual.sirnilin.services.MlScoreService;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @RestController
 @RequestMapping("/advertisers")
@@ -93,6 +90,10 @@ public class AdvertiserController {
 
             return ResponseEntity.ok(campaign);
         } catch (IllegalArgumentException e) {
+            if (e.getMessage().equals("Campaign not found")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("message", e.getMessage()));
+            }
             HashMap<String, String> errorResponse = new HashMap<>();
             errorResponse.put("message", "Get campaign failed: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
