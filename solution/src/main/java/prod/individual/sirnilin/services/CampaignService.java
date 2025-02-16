@@ -90,6 +90,30 @@ public class CampaignService {
             throw new IllegalArgumentException("Advertiser does not have access to this campaign");
         }
 
+        Integer currentDate = (Integer) redisTemplate.opsForValue().get("currentDate");
+
+        if (currentDate == null) {
+            currentDate = timeRepository.findById(1l).orElse(new TimeModel(0)).getCurrentDate();
+        }
+
+        if (request.getStartDate() == null || request.getEndDate() == null) {
+            throw new IllegalArgumentException("Start date and end date cannot be null");
+        }
+
+        if (request.getStartDate() < currentDate || request.getEndDate() < currentDate) {
+            throw new IllegalArgumentException("Start date and end date cannot be less than current date");
+        }
+
+        if (request.getStartDate() > request.getEndDate()) {
+            throw new IllegalArgumentException("Start date cannot be greater than end date");
+        }
+
+        if ((campaign.getStartDate() != request.getStartDate() || campaign.getEndDate() != request.getEndDate()) &&
+                campaign.getStartDate() <= currentDate && campaign.getEndDate() >= currentDate) {
+            throw new IllegalArgumentException("Start date and end date cannot be changed after the campaign has started");
+        }
+
+
         TargetModel target = request.getTargeting();
 
         if (target != null) {
@@ -115,6 +139,8 @@ public class CampaignService {
         if (request.getAdText() != null) {
             campaign.setAdText(request.getAdText());
         }
+        campaign.setStartDate(request.getStartDate());
+        campaign.setEndDate(request.getEndDate());
 
         return campaignRepository.save(campaign);
     }

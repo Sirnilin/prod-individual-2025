@@ -37,13 +37,13 @@ public class StatisticController {
         }
     }
 
-    @GetMapping("/clients/{clientId}/daily")
-    public ResponseEntity<?> getClientsDailyStatistic(@PathVariable String clientId) {
+    @GetMapping("/campaigns/{campaignsId}/daily")
+    public ResponseEntity<?> getCampaignStatisticDaily(@PathVariable String campaignsId) {
         try {
-            UUID clientUUID = UUID.fromString(clientId);
-            return ResponseEntity.ok(adsService.getCampaignStatisticDaily(clientUUID));
+            UUID campaignUUID = UUID.fromString(campaignsId);
+            return ResponseEntity.ok(adsService.getCampaignStatisticDaily(campaignUUID));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body("Get client daily statistic failed: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Get campaign daily statistic failed: " + e.getMessage());
         }
     }
 

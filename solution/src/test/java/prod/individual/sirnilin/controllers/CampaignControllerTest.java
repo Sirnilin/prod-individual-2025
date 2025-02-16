@@ -140,6 +140,8 @@ public class CampaignControllerTest {
         request.setCostPerClick(1.1f);
         request.setAdTitle("Updated Ad");
         request.setAdText("Updated Ad Text");
+        request.setStartDate(20250101);
+        request.setEndDate(20251231);
 
         CampaignModel campaignModel = new CampaignModel();
         campaignModel.setCampaignId(campaignId);

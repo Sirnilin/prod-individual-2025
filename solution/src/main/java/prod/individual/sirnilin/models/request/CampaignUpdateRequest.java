@@ -25,5 +25,13 @@ public class CampaignUpdateRequest {
     @JsonProperty("ad_text")
     private String adText;
 
+    @NotNull
+    @JsonProperty("start_date")
+    private Integer startDate;
+
+    @NotNull
+    @JsonProperty("end_date")
+    private Integer endDate;
+
     private TargetModel targeting;
 }
