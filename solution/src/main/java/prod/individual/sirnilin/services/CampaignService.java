@@ -1,6 +1,7 @@
 package prod.individual.sirnilin.services;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import prod.individual.sirnilin.models.CampaignModel;
@@ -24,6 +25,7 @@ public class CampaignService {
     final private RedisTemplate<String, Object> redisTemplate;
     final private TimeRepository timeRepository;
 
+    @CacheEvict(value = "matchingAdsCache", allEntries = true)
     public CampaignModel createCampaign(CampaignCreateRequest request, UUID advertiserId) {
         CampaignModel campaign = new CampaignModel();
 
@@ -34,7 +36,7 @@ public class CampaignService {
         Integer currentDate = (Integer) redisTemplate.opsForValue().get("currentDate");
 
         if (currentDate == null) {
-            currentDate = timeRepository.findById(1l).orElse(new TimeModel()).getCurrentDate();
+            currentDate = timeRepository.findById(1l).orElse(new TimeModel(0)).getCurrentDate();
         }
 
         if (request.getStartDate() < currentDate || request.getEndDate() < currentDate) {
@@ -79,6 +81,7 @@ public class CampaignService {
                 .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
     }
 
+    @CacheEvict(value = "matchingAdsCache", allEntries = true)
     public CampaignModel updateCampaign(CampaignUpdateRequest request, UUID campaignId, UUID advertiserId) {
         CampaignModel campaign = campaignRepository.findByCampaignId(campaignId)
                 .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
@@ -116,6 +119,7 @@ public class CampaignService {
         return campaignRepository.save(campaign);
     }
 
+    @CacheEvict(value = "matchingAdsCache", allEntries = true)
     public void deleteCampaign(UUID campaignId, UUID advertiserId) {
         CampaignModel campaign = campaignRepository.findByCampaignId(campaignId)
                 .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));

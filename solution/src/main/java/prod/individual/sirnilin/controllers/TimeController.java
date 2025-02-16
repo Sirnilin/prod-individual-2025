@@ -2,6 +2,7 @@ package prod.individual.sirnilin.controllers;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,8 +22,9 @@ public class TimeController {
     final private RedisTemplate<String, Object> redisTemplate;
 
     @PostMapping("/advance")
+    @CacheEvict(value = "matchingAdsCache", allEntries = true)
     public ResponseEntity<?> updateCurrentDate(@Valid @RequestBody TimeRequest timeRequest) {
-        TimeModel timeModel = timeRepository.findById(1l).orElse(new TimeModel());
+        TimeModel timeModel = timeRepository.findById(1l).orElse(new TimeModel(0));
 
         if (timeRequest.getCurrentDate() < timeModel.getCurrentDate()) {
             return ResponseEntity.badRequest().body("Current date cannot be decreased");

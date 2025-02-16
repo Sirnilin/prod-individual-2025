@@ -24,6 +24,10 @@ public class AdsController {
             UUID clientUUID = UUID.fromString(clientId);
             CampaignModel campaign = adsService.getAds(clientUUID);
 
+            if (campaign == null) {
+                return ResponseEntity.notFound().build();
+            }
+
             AdsResponse ads = new AdsResponse(
                     campaign.getCampaignId(),
                     campaign.getAdTitle(),

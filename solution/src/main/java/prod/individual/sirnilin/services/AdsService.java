@@ -1,16 +1,16 @@
 package prod.individual.sirnilin.services;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import prod.individual.sirnilin.models.*;
 import prod.individual.sirnilin.models.resonse.StatisticResponse;
 import prod.individual.sirnilin.repositories.*;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.ForkJoinPool;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,7 +32,7 @@ public class AdsService {
         Integer currentDate = (Integer) redisTemplate.opsForValue().get("currentDate");
 
         if (currentDate == null) {
-            currentDate = timeRepository.findById(1l).orElse(new TimeModel()).getCurrentDate();
+            currentDate = timeRepository.findById(1l).orElse(new TimeModel(0)).getCurrentDate();
         }
 
         List<CampaignModel> matchingAds = getMatchingAds(client, currentDate);
@@ -43,7 +43,11 @@ public class AdsService {
 
         CampaignModel bestCampaign = getBestCampaign(matchingAds, client);
 
-        bestCampaign.setCountImpressions(bestCampaign.getCountImpressions() + 1);
+        if (bestCampaign == null) {
+            return null;
+        }
+
+        campaignRepository.incrementImpressions(bestCampaign.getCampaignId());
 
         HistoryImpressionsModel historyImpressions = new HistoryImpressionsModel(clientId,
                 bestCampaign.getCampaignId(),
@@ -52,14 +56,14 @@ public class AdsService {
         );
         historyImpressionsRepository.save(historyImpressions);
 
-        return campaignRepository.save(bestCampaign);
+        return bestCampaign;
     }
 
     public void adsClick (UUID clientId, UUID campaignId) {
         Integer currentDate = (Integer) redisTemplate.opsForValue().get("currentDate");
 
         if (currentDate == null) {
-            currentDate = timeRepository.findById(1l).orElse(new TimeModel()).getCurrentDate();
+            currentDate = timeRepository.findById(1l).orElse(new TimeModel(0)).getCurrentDate();
         }
 
         CampaignModel campaign = campaignRepository.findByCampaignId(campaignId)
@@ -75,8 +79,7 @@ public class AdsService {
         );
         historyClicksRepository.save(historyClicks);
 
-        campaign.setCountClicks(campaign.getCountClicks() + 1);
-        campaignRepository.save(campaign);
+        campaignRepository.incrementClicks(campaignId);
     }
 
     public StatisticResponse getCampaignStatistic(UUID campaignId) {
@@ -217,77 +220,135 @@ public class AdsService {
                 .collect(Collectors.toList());
     }
 
-    private List<CampaignModel> getMatchingAds(ClientModel client, Integer finalCurrentDate) {
-
-        return campaignRepository.findAll()
-                .stream()
-                .filter(campaign -> {
-                    TargetModel target = campaign.getTargeting();
-                    if (target == null) {
-                        return true;
-                    }
-                    if (target.getGender() != null
-                            && !target.getGender().equals(client.getGender())
-                            && !target.getGender().equals(Gender.ALL)
-                    ) {
-                        return false;
-                    }
-                    if (target.getAgeFrom() != null
-                            && client.getAge() < target.getAgeFrom()) {
-                        return false;
-                    }
-                    if (target.getAgeTo() != null
-                            && client.getAge() > target.getAgeTo()) {
-                        return false;
-                    }
-                    if (target.getLocation() != null
-                            && !target.getLocation().equals(client.getLocation())) {
-                        return false;
-                    }
-                    return campaign.getStartDate() <= finalCurrentDate
-                            && campaign.getEndDate() >= finalCurrentDate;
-                })
-                .toList();
+    @Cacheable(value = "matchingAdsCache", key = "#client.clientId")
+    public List<CampaignModel> getMatchingAds(ClientModel client, Integer finalCurrentDate) {
+        return campaignRepository.findMatchingCampaigns(finalCurrentDate,
+                client.getGender(),
+                client.getAge(),
+                client.getLocation());
     }
 
-    private float computeScore(CampaignModel campaign,
-                              int mlScore
-    ) {
+    private float computeScore(CampaignModel campaign, int mlScore,
+                               float globalImpressionPenaltyFactor, float globalClickPenaltyFactor) {
         float baseCost = 0.5f * (campaign.getCostPerImpression() + campaign.getCostPerClick());
         float mlPart = 0.25f * mlScore;
+        float impressionRatio = campaign.getImpressionsLimit() != 0
+                ? (float) campaign.getCountImpressions() / campaign.getImpressionsLimit()
+                : 1;
+        float clickRatio = campaign.getClicksLimit() != 0
+                ? (float) campaign.getCountClicks() / campaign.getClicksLimit()
+                : 1;
+        float impressionPenalty = impressionRatio > 1 ? 1 / impressionRatio : 1;
+        float clickPenalty = clickRatio > 1 ? 1 / clickRatio : 1;
+        float limitPenalty = (impressionPenalty + clickPenalty) / 2;
 
-        float ratiosSum = 0f;
-        int count = 0;
-        if (campaign.getImpressionsLimit() != 0) {
-            ratiosSum += (float) campaign.getCountImpressions() / campaign.getImpressionsLimit();
-            count++;
-        }
-        if (campaign.getClicksLimit() != 0) {
-            ratiosSum += (float) campaign.getCountClicks() / campaign.getClicksLimit();
-            count++;
-        }
-        float limitRatio = count > 0 ? ratiosSum / count : 0f;
+        float score = (baseCost + mlPart) * limitPenalty;
 
-        return baseCost + mlPart + 0.15f * limitRatio;
+        if (campaign.getCountClicks() > campaign.getClicksLimit() || campaign.getCountImpressions() > campaign.getImpressionsLimit()) {
+            float globalLimitPenaltyFactor = globalImpressionPenaltyFactor * globalClickPenaltyFactor;
+            score = score * globalLimitPenaltyFactor;
+        }
+        return score;
     }
 
-    private CampaignModel getBestCampaign(List<CampaignModel> matchingAds,
-                                         ClientModel client
-    ) {
-        CampaignModel bestCampaign = null;
-        float maxScore = Float.NEGATIVE_INFINITY;
+    private float computeGlobalImpressionPenaltyFactor() {
+        List<HistoryImpressionsModel> historyImpressionsModels = historyImpressionsRepository.findAll();
+        List<UUID> campaignIds = historyImpressionsModels.stream()
+                .map(HistoryImpressionsModel::getCampaignId)
+                .distinct()
+                .collect(Collectors.toList());
 
-        for (CampaignModel campaign : matchingAds) {
-            float score = computeScore(campaign,
-                    getMlScore(campaign.getAdvertiserId(), client.getClientId())
-            );
-            if (score > maxScore) {
-                maxScore = score;
-                bestCampaign = campaign;
+        List<CampaignModel> campaigns = campaignRepository.findByCampaignIdIn(campaignIds);
+        Map<UUID, CampaignModel> campaignMap = campaigns.stream()
+                .collect(Collectors.toMap(CampaignModel::getCampaignId, Function.identity()));
+
+        float allCount = historyImpressionsModels.size();
+        float errorCount = 0;
+
+        for (HistoryImpressionsModel historyImpressionsModel : historyImpressionsModels) {
+            CampaignModel campaign = campaignMap.get(historyImpressionsModel.getCampaignId());
+            if (campaign == null) {
+                continue;
+            }
+            if (campaign.getImpressionsLimit() < campaign.getCountImpressions()) {
+                errorCount++;
             }
         }
+        if (errorCount == 0) {
+            return 1.0f;
+        }
+        float overshootFraction = errorCount / allCount;
+        if (overshootFraction <= 0.05f) {
+            float penaltyPercent = overshootFraction * 100 * 0.1f;
+            float factor = 1.0f - penaltyPercent;
+            return Math.max(factor, 0);
+        }
+        return 0;
+    }
 
-        return bestCampaign;
+    private float computeGlobalClickPenaltyFactor() {
+        List<HistoryImpressionsModel> historyImpressionsModels = historyImpressionsRepository.findAll();
+        List<UUID> campaignIds = historyImpressionsModels.stream()
+                .map(HistoryImpressionsModel::getCampaignId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        List<CampaignModel> campaigns = campaignRepository.findByCampaignIdIn(campaignIds);
+        Map<UUID, CampaignModel> campaignMap = campaigns.stream()
+                .collect(Collectors.toMap(CampaignModel::getCampaignId, Function.identity()));
+
+        float allCount = historyImpressionsModels.size();
+        float errorCount = 0;
+
+        for (HistoryImpressionsModel historyImpressionsModel : historyImpressionsModels) {
+            CampaignModel campaign = campaignMap.get(historyImpressionsModel.getCampaignId());
+            if (campaign == null) {
+                continue;
+            }
+            if (campaign.getClicksLimit() < campaign.getCountClicks()) {
+                errorCount++;
+            }
+        }
+        if (errorCount == 0) {
+            return 1.0f;
+        }
+        float overshootFraction = errorCount / allCount;
+        if (overshootFraction <= 0.05f) {
+            float penaltyPercent = overshootFraction * 100 * 0.1f;
+            float factor = 1.0f - penaltyPercent;
+            return Math.max(factor, 0);
+        }
+        return 0;
+    }
+
+    private CampaignModel getBestCampaign(List<CampaignModel> matchingAds, ClientModel client) {
+        Set<UUID> advertiserIds = matchingAds.stream()
+                .map(CampaignModel::getAdvertiserId)
+                .collect(Collectors.toSet());
+        List<MlScoreModel> mlScores = mlScoreRepository.findByAdvertiserIdInAndClientId(advertiserIds, client.getClientId());
+        Map<UUID, Integer> mlScoreMap = mlScores.stream()
+                .collect(Collectors.toMap(MlScoreModel::getAdvertiserId, MlScoreModel::getScore));
+
+        float globalImpressionPenaltyFactor = computeGlobalImpressionPenaltyFactor();
+        float globalClickPenaltyFactor = computeGlobalClickPenaltyFactor();
+
+        ForkJoinPool customThreadPool = new ForkJoinPool(8);
+        try {
+            return customThreadPool.submit(() ->
+                    matchingAds.parallelStream()
+                            .map(campaign -> {
+                                int mlScore = mlScoreMap.getOrDefault(campaign.getAdvertiserId(), 0);
+                                float score = computeScore(campaign, mlScore, globalImpressionPenaltyFactor, globalClickPenaltyFactor);
+                                return new AbstractMap.SimpleEntry<>(campaign, score);
+                            })
+                            .max(Comparator.comparing(AbstractMap.SimpleEntry::getValue))
+                            .filter(entry -> entry.getValue() > 0)
+                            .map(AbstractMap.SimpleEntry::getKey)
+                            .orElse(null)
+            ).join();
+        } finally {
+            customThreadPool.shutdown();
+        }
     }
 
     private int getMlScore (UUID advertiserId, UUID clientId) {
