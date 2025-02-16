@@ -26,5 +26,7 @@ public interface HistoryClicksRepository extends JpaRepository<HistoryClicksMode
 
     @Query("SELECT hc.date, hc.campaignId, COUNT(hc) FROM HistoryClicksModel hc WHERE hc.advertiserId = :advertiserId GROUP BY hc.date, hc.campaignId")
     List<Object[]> countDailyClicksByAdvertiser(@Param("advertiserId") UUID advertiserId);
+
+    Boolean existsByClientIdAndCampaignId(UUID clientId, UUID campaignId);
 }
 

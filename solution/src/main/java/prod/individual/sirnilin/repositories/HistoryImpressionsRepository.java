@@ -29,5 +29,7 @@ public interface HistoryImpressionsRepository extends JpaRepository<HistoryImpre
 
     @Query("SELECT hi.date, hi.campaignId, COUNT(hi) FROM HistoryImpressionsModel hi WHERE hi.advertiserId = :advertiserId GROUP BY hi.date, hi.campaignId")
     List<Object[]> countDailyImpressionsByAdvertiser(@Param("advertiserId") UUID advertiserId);
+
+    Boolean existsByClientIdAndCampaignId(UUID clientId, UUID campaignId);
 }
 

@@ -47,14 +47,18 @@ public class AdsService {
             return null;
         }
 
-        campaignRepository.incrementImpressions(bestCampaign.getCampaignId());
+        Boolean exists = historyImpressionsRepository.existsByClientIdAndCampaignId(clientId, bestCampaign.getCampaignId());
 
-        HistoryImpressionsModel historyImpressions = new HistoryImpressionsModel(clientId,
-                bestCampaign.getCampaignId(),
-                bestCampaign.getAdvertiserId(),
-                currentDate
-        );
-        historyImpressionsRepository.save(historyImpressions);
+        if (!exists) {
+            campaignRepository.incrementImpressions(bestCampaign.getCampaignId());
+
+            HistoryImpressionsModel historyImpressions = new HistoryImpressionsModel(clientId,
+                    bestCampaign.getCampaignId(),
+                    bestCampaign.getAdvertiserId(),
+                    currentDate
+            );
+            historyImpressionsRepository.save(historyImpressions);
+        }
 
         return bestCampaign;
     }
@@ -69,17 +73,25 @@ public class AdsService {
         CampaignModel campaign = campaignRepository.findByCampaignId(campaignId)
                 .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
 
-        HistoryImpressionsModel historyImpressions = historyImpressionsRepository.findByClientIdAndCampaignId(clientId, campaignId)
-                .orElseThrow(() -> new IllegalArgumentException("Impression not found"));
+        Boolean exists = historyImpressionsRepository.existsByClientIdAndCampaignId(clientId, campaignId);
 
-        HistoryClicksModel historyClicks = new HistoryClicksModel(clientId,
-                campaignId,
-                campaign.getAdvertiserId(),
-                currentDate
-        );
-        historyClicksRepository.save(historyClicks);
+        if (!exists) {
+            throw new IllegalArgumentException("Impression not found");
+        }
 
-        campaignRepository.incrementClicks(campaignId);
+        Boolean clickExists = historyClicksRepository.existsByClientIdAndCampaignId(clientId, campaignId);
+
+
+        if (!clickExists) {
+            HistoryClicksModel historyClicks = new HistoryClicksModel(clientId,
+                    campaignId,
+                    campaign.getAdvertiserId(),
+                    currentDate
+            );
+            historyClicksRepository.save(historyClicks);
+
+            campaignRepository.incrementClicks(campaignId);
+        }
     }
 
     public StatisticResponse getCampaignStatistic(UUID campaignId) {
