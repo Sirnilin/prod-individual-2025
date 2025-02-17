@@ -5,15 +5,27 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
+      POSTGRES_DB: prod_db
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  statistics-database:
+    image: postgres:latest
+    container_name: statistics-database
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: statistics_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - statistics_pgdata:/var/lib/postgresql/data
+
   prod-api:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: prod-api
     ports:
@@ -22,11 +34,28 @@ services:
       SERVER_PORT: 8080
       POSTGRES_USERNAME: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_JDBC_URL: jdbc:postgresql://prod-database:5432/postgres
+      POSTGRES_JDBC_URL: jdbc:postgresql://prod-database:5432/prod_db
       REDIS_HOST: redis
       REDIS_PORT: 6379
     depends_on:
       - prod-database
+
+  statistics-api:
+    build:
+      context: ./statistic
+      dockerfile: Dockerfile
+    container_name: statistics-api
+    ports:
+      - "8081:8081"
+    environment:
+      SERVER_PORT: 8081
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_JDBC_URL: jdbc:postgresql://statistics-database:5432/statistics_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - statistics-database
 
   redis:
     image: redis:latest
@@ -36,3 +65,4 @@ services:
 
 volumes:
   pgdata:
+  statistics_pgdata:
