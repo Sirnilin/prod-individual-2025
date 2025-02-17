@@ -23,11 +23,11 @@ public class KafkaConsumer {
     public void consumeImpressionEvent(HistoryEvent event) {
         log.info("Received impression event: {}", event);
 
-//        Boolean exist = historyImpressionsRepository.existsByClientIdAndCampaignId(event.getClientId(), event.getCampaignId());
-//
-//        if (exist) {
-//            return;
-//        }
+        Boolean exist = historyImpressionsRepository.existsByClientIdAndCampaignId(event.getClientId(), event.getCampaignId());
+
+        if (exist) {
+            return;
+        }
 
         historyImpressionsRepository.save(new HistoryImpressionsModel(
                 event.getClientId(),
@@ -46,11 +46,11 @@ public class KafkaConsumer {
     public void consumeClickEvent(HistoryEvent event) {
         log.info("Received click event: {}", event);
 
-//        Boolean exist = historyClicksRepository.existsByClientIdAndCampaignId(event.getClientId(), event.getCampaignId());
-//
-//        if (exist) {
-//            return;
-//        }
+        Boolean exist = historyClicksRepository.existsByClientIdAndCampaignId(event.getClientId(), event.getCampaignId());
+
+        if (exist) {
+            return;
+        }
 
         historyClicksRepository.save(new HistoryClicksModel(
                 event.getClientId(),

@@ -28,7 +28,6 @@ public class AdsService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final TimeRepository timeRepository;
     private final HistoryImpressionsRepository historyImpressionsRepository;
-    private final HistoryClicksRepository historyClicksRepository;
     private final RestTemplate restTemplate = new RestTemplate();
     private final KafkaProducer kafkaProducer;
     private final MatchingAdsService matchingAdsService;
@@ -46,7 +45,7 @@ public class AdsService {
             return restTemplate.exchange(url, HttpMethod.GET, null, new ParameterizedTypeReference<Map<UUID, Integer>>() {}).getBody();
         } catch (HttpClientErrorException e) {
             System.err.println("Error fetching impressions: " + e.getMessage());
-            return Collections.emptyMap(); // Возвращаем пустую карту в случае ошибки
+            return Collections.emptyMap();
         }
     }
 
@@ -60,7 +59,7 @@ public class AdsService {
             return restTemplate.exchange(url, HttpMethod.GET, null, new ParameterizedTypeReference<Map<UUID, Integer>>() {}).getBody();
         } catch (HttpClientErrorException e) {
             System.err.println("Error fetching clicks: " + e.getMessage());
-            return Collections.emptyMap(); // Возвращаем пустую карту в случае ошибки
+            return Collections.emptyMap();
         }
     }
 
