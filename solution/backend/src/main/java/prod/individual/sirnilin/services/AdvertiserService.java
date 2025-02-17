@@ -12,7 +12,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AdvertiserService {
 
-    final private AdvertiserRepository advertiserRepository;
+    private final AdvertiserRepository advertiserRepository;
 
     public void bulkInsert(List<AdvertiserModel> advertiserModels) {
         advertiserRepository.saveAll(advertiserModels);

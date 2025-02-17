@@ -17,43 +17,43 @@ public class StatisticController {
 
     final private AdsService adsService;
 
-    @GetMapping("/campaigns/{campaignId}")
-    public ResponseEntity<?> getCampaignsStatistic(@PathVariable String campaignId) {
-        try {
-            UUID campaignUUID = UUID.fromString(campaignId);
-            return ResponseEntity.ok(adsService.getCampaignStatistic(campaignUUID));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body("Get campaign statistic failed: " + e.getMessage());
-        }
-    }
-
-    @GetMapping("/advertisers/{advertiserId}/campaigns")
-    public ResponseEntity<?> getAdvertisersStatistic(@PathVariable String advertiserId) {
-        try {
-            UUID advertiserUUID = UUID.fromString(advertiserId);
-            return ResponseEntity.ok(adsService.getAdvertiserStatistic(advertiserUUID));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body("Get advertiser statistic failed: " + e.getMessage());
-        }
-    }
-
-    @GetMapping("/campaigns/{campaignsId}/daily")
-    public ResponseEntity<?> getCampaignStatisticDaily(@PathVariable String campaignsId) {
-        try {
-            UUID campaignUUID = UUID.fromString(campaignsId);
-            return ResponseEntity.ok(adsService.getCampaignStatisticDaily(campaignUUID));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body("Get campaign daily statistic failed: " + e.getMessage());
-        }
-    }
-
-    @GetMapping("/advertisers/{advertiserId}/campaigns/daily")
-    public ResponseEntity<?> getAdvertisersDailyStatistic(@PathVariable String advertiserId) {
-        try {
-            UUID advertiserUUID = UUID.fromString(advertiserId);
-            return ResponseEntity.ok(adsService.getAdvertiserStatisticDaily(advertiserUUID));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body("Get advertiser daily statistic failed: " + e.getMessage());
-        }
-    }
+//    @GetMapping("/campaigns/{campaignId}")
+//    public ResponseEntity<?> getCampaignsStatistic(@PathVariable String campaignId) {
+//        try {
+//            UUID campaignUUID = UUID.fromString(campaignId);
+//            return ResponseEntity.ok(adsService.getCampaignStatistic(campaignUUID));
+//        } catch (IllegalArgumentException e) {
+//            return ResponseEntity.badRequest().body("Get campaign statistic failed: " + e.getMessage());
+//        }
+//    }
+//
+//    @GetMapping("/advertisers/{advertiserId}/campaigns")
+//    public ResponseEntity<?> getAdvertisersStatistic(@PathVariable String advertiserId) {
+//        try {
+//            UUID advertiserUUID = UUID.fromString(advertiserId);
+//            return ResponseEntity.ok(adsService.getAdvertiserStatistic(advertiserUUID));
+//        } catch (IllegalArgumentException e) {
+//            return ResponseEntity.badRequest().body("Get advertiser statistic failed: " + e.getMessage());
+//        }
+//    }
+//
+//    @GetMapping("/campaigns/{campaignsId}/daily")
+//    public ResponseEntity<?> getCampaignStatisticDaily(@PathVariable String campaignsId) {
+//        try {
+//            UUID campaignUUID = UUID.fromString(campaignsId);
+//            return ResponseEntity.ok(adsService.getCampaignStatisticDaily(campaignUUID));
+//        } catch (IllegalArgumentException e) {
+//            return ResponseEntity.badRequest().body("Get campaign daily statistic failed: " + e.getMessage());
+//        }
+//    }
+//
+//    @GetMapping("/advertisers/{advertiserId}/campaigns/daily")
+//    public ResponseEntity<?> getAdvertisersDailyStatistic(@PathVariable String advertiserId) {
+//        try {
+//            UUID advertiserUUID = UUID.fromString(advertiserId);
+//            return ResponseEntity.ok(adsService.getAdvertiserStatisticDaily(advertiserUUID));
+//        } catch (IllegalArgumentException e) {
+//            return ResponseEntity.badRequest().body("Get advertiser daily statistic failed: " + e.getMessage());
+//        }
+//    }
 }

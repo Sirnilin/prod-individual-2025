@@ -1,11 +1,16 @@
 package prod.individual.sirnilin.services;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 import prod.individual.sirnilin.models.*;
-import prod.individual.sirnilin.models.resonse.StatisticResponse;
 import prod.individual.sirnilin.repositories.*;
 
 import java.util.*;
@@ -17,13 +22,105 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AdsService {
 
-    final private CampaignRepository campaignRepository;
-    final private ClientRepository clientRepository;
-    final private MlScoreRepository mlScoreRepository;
-    final private RedisTemplate<String, Object> redisTemplate;
-    final private TimeRepository timeRepository;
-    final private HistoryImpressionsRepository historyImpressionsRepository;
-    final private HistoryClicksRepository historyClicksRepository;
+    private final CampaignRepository campaignRepository;
+    private final ClientRepository clientRepository;
+    private final MlScoreRepository mlScoreRepository;
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final TimeRepository timeRepository;
+    private final HistoryImpressionsRepository historyImpressionsRepository;
+    private final HistoryClicksRepository historyClicksRepository;
+    private final RestTemplate restTemplate = new RestTemplate();
+    private final KafkaProducer kafkaProducer;
+    private final MatchingAdsService matchingAdsService;
+
+    @Value("${service.url}")
+    private String serviceUrl;
+
+    private Map<UUID, Integer> fetchImpressionsFromStatisticsService(List<UUID> campaignIds) {
+        String url = UriComponentsBuilder.fromHttpUrl(serviceUrl)
+                .path("/history/impressions")
+                .queryParam("campaignIds", campaignIds.stream().map(UUID::toString).collect(Collectors.joining(",")))
+                .toUriString();
+        System.out.println(url);
+        try {
+            return restTemplate.exchange(url, HttpMethod.GET, null, new ParameterizedTypeReference<Map<UUID, Integer>>() {}).getBody();
+        } catch (HttpClientErrorException e) {
+            System.err.println("Error fetching impressions: " + e.getMessage());
+            return Collections.emptyMap(); // Возвращаем пустую карту в случае ошибки
+        }
+    }
+
+    private Map<UUID, Integer> fetchClicksFromStatisticsService(List<UUID> campaignIds) {
+        String url = UriComponentsBuilder.fromHttpUrl(serviceUrl)
+                .path("/history/clicks")
+                .queryParam("campaignIds", campaignIds.stream().map(UUID::toString).collect(Collectors.joining(",")))
+                .toUriString();
+        System.out.println(url);
+        try {
+            return restTemplate.exchange(url, HttpMethod.GET, null, new ParameterizedTypeReference<Map<UUID, Integer>>() {}).getBody();
+        } catch (HttpClientErrorException e) {
+            System.err.println("Error fetching clicks: " + e.getMessage());
+            return Collections.emptyMap(); // Возвращаем пустую карту в случае ошибки
+        }
+    }
+
+    private List<CampaignModel> updateCountImpressionsAndClicks(List<UUID> campaignIds) {
+        List<UUID> missingImpressions = new ArrayList<>();
+        List<UUID> missingClicks = new ArrayList<>();
+        Map<UUID, Integer> impressionsMap = new HashMap<>();
+        Map<UUID, Integer> clicksMap = new HashMap<>();
+
+        for (UUID campaignId : campaignIds) {
+            String redisKeyImpressions = "impressions:" + campaignId;
+            String redisKeyClicks = "clicks:" + campaignId;
+
+            Integer countImpressions = (Integer) redisTemplate.opsForValue().get(redisKeyImpressions);
+            Integer countClicks = (Integer) redisTemplate.opsForValue().get(redisKeyClicks);
+
+            if (countImpressions == null) {
+                missingImpressions.add(campaignId);
+            } else {
+                impressionsMap.put(campaignId, countImpressions);
+            }
+
+            if (countClicks == null) {
+                missingClicks.add(campaignId);
+            } else {
+                clicksMap.put(campaignId, countClicks);
+            }
+        }
+
+        if (!missingImpressions.isEmpty()) {
+            Map<UUID, Integer> fetchedImpressions = fetchImpressionsFromStatisticsService(missingImpressions);
+            impressionsMap.putAll(fetchedImpressions);
+            for (Map.Entry<UUID, Integer> entry : fetchedImpressions.entrySet()) {
+                String redisKeyImpressions = "impressions:" + entry.getKey();
+                redisTemplate.opsForValue().set(redisKeyImpressions, entry.getValue());
+            }
+        }
+
+        if (!missingClicks.isEmpty()) {
+            Map<UUID, Integer> fetchedClicks = fetchClicksFromStatisticsService(missingClicks);
+            clicksMap.putAll(fetchedClicks);
+            for (Map.Entry<UUID, Integer> entry : fetchedClicks.entrySet()) {
+                String redisKeyClicks = "clicks:" + entry.getKey();
+                redisTemplate.opsForValue().set(redisKeyClicks, entry.getValue());
+            }
+        }
+
+        List<CampaignModel> campaigns = campaignRepository.findByCampaignIdIn(campaignIds);
+
+        for (CampaignModel campaign : campaigns) {
+            UUID campaignId = campaign.getCampaignId();
+            Integer countImpressions = impressionsMap.getOrDefault(campaignId, 0);
+            Integer countClicks = clicksMap.getOrDefault(campaignId, 0);
+
+            campaign.setCountImpressions(countImpressions);
+            campaign.setCountClicks(countClicks);
+        }
+
+        return campaigns;
+    }
 
     public CampaignModel getAds(UUID clientId) {
         ClientModel client = clientRepository.findByClientId(clientId)
@@ -35,11 +132,15 @@ public class AdsService {
             currentDate = timeRepository.findById(1l).orElse(new TimeModel(0)).getCurrentDate();
         }
 
-        List<CampaignModel> matchingAds = getMatchingAds(client, currentDate);
+        List<CampaignModel> matchingAds = matchingAdsService.getMatchingAds(client, currentDate);
 
         if (matchingAds.isEmpty()) {
             return null;
         }
+
+        matchingAds = updateCountImpressionsAndClicks(matchingAds.stream()
+                .map(CampaignModel::getCampaignId)
+                .collect(Collectors.toList()));
 
         CampaignModel bestCampaign = getBestCampaign(matchingAds, client);
 
@@ -47,18 +148,13 @@ public class AdsService {
             return null;
         }
 
-        Boolean exists = historyImpressionsRepository.existsByClientIdAndCampaignId(clientId, bestCampaign.getCampaignId());
-
-        if (!exists) {
-            campaignRepository.incrementImpressions(bestCampaign.getCampaignId());
-
-            HistoryImpressionsModel historyImpressions = new HistoryImpressionsModel(clientId,
-                    bestCampaign.getCampaignId(),
-                    bestCampaign.getAdvertiserId(),
-                    currentDate
-            );
-            historyImpressionsRepository.save(historyImpressions);
-        }
+        kafkaProducer.sendImpressionEvent(new HistoryEvent
+                (clientId,
+                bestCampaign.getCampaignId(),
+                bestCampaign.getAdvertiserId(),
+                currentDate,
+                bestCampaign.getCostPerImpression())
+        );
 
         return bestCampaign;
     }
@@ -79,195 +175,16 @@ public class AdsService {
             throw new IllegalArgumentException("Impression not found");
         }
 
-        Boolean clickExists = historyClicksRepository.existsByClientIdAndCampaignId(clientId, campaignId);
-
-
-        if (!clickExists) {
-            HistoryClicksModel historyClicks = new HistoryClicksModel(clientId,
-                    campaignId,
-                    campaign.getAdvertiserId(),
-                    currentDate
-            );
-            historyClicksRepository.save(historyClicks);
-
-            campaignRepository.incrementClicks(campaignId);
-        }
+        kafkaProducer.sendClickEvent(new HistoryEvent
+                (clientId,
+                campaignId,
+                campaign.getAdvertiserId(),
+                currentDate,
+                campaign.getCostPerClick())
+        );
     }
 
-    public StatisticResponse getCampaignStatistic(UUID campaignId) {
-        CampaignModel campaign = campaignRepository.findByCampaignId(campaignId)
-                .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
-
-        long impressionsCount = historyImpressionsRepository.countByCampaignId(campaignId);
-        long clicksCount = historyClicksRepository.countByCampaignId(campaignId);
-
-        StatisticResponse statistic = new StatisticResponse();
-        statistic.setImpressionsCount((int) impressionsCount);
-        statistic.setClicksCount((int) clicksCount);
-        statistic.setConversion(impressionsCount == 0 ? 0.0f
-                : (float) clicksCount / impressionsCount * 100.0f);
-        statistic.setSpentImpressions(campaign.getCostPerImpression() * impressionsCount);
-        statistic.setSpentClicks(campaign.getCostPerClick() * clicksCount);
-        statistic.setSpentTotal(statistic.getSpentImpressions() + statistic.getSpentClicks());
-        return statistic;
-    }
-
-    public List<StatisticResponse> getCampaignStatisticDaily(UUID campaignId) {
-        CampaignModel campaign = campaignRepository.findByCampaignId(campaignId)
-                .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
-
-        Map<Integer, StatisticResponse> dailyStats = new HashMap<>();
-
-        List<Object[]> impressionsData = historyImpressionsRepository.countDailyImpressions(campaignId);
-        for (Object[] row : impressionsData) {
-            Integer date = (Integer) row[0];
-            Long count = (Long) row[1];
-            StatisticResponse stat = dailyStats.computeIfAbsent(date, d -> new StatisticResponse());
-            stat.setImpressionsCount(count.intValue());
-            stat.setSpentImpressions(campaign.getCostPerImpression() * count);
-        }
-
-        List<Object[]> clicksData = historyClicksRepository.countDailyClicks(campaignId);
-        for (Object[] row : clicksData) {
-            Integer date = (Integer) row[0];
-            Long count = (Long) row[1];
-            StatisticResponse stat = dailyStats.computeIfAbsent(date, d -> new StatisticResponse());
-            stat.setClicksCount(count.intValue());
-            stat.setSpentClicks(campaign.getCostPerClick() * count);
-        }
-
-        dailyStats.values().forEach(stat -> {
-            int impressions = stat.getImpressionsCount() == null ? 0 : stat.getImpressionsCount();
-            int clicks = stat.getClicksCount() == null ? 0 : stat.getClicksCount();
-            float spentImpressions = stat.getSpentImpressions() == null ? 0.0f : stat.getSpentImpressions();
-            float spentClicks = stat.getSpentClicks() == null ? 0.0f : stat.getSpentClicks();
-            float conversion = impressions == 0 ? 0.0f : (float) clicks / impressions * 100.0f;
-            stat.setConversion(conversion);
-            stat.setSpentTotal(spentImpressions + spentClicks);
-            stat.setClicksCount(clicks);
-            stat.setSpentClicks(spentClicks);
-        });
-
-        return dailyStats.entrySet().stream()
-                .map(entry -> {
-                    StatisticResponse stat = entry.getValue();
-                    stat.setDate(entry.getKey());
-                    return stat;
-                })
-                .collect(Collectors.toList());
-    }
-
-    public StatisticResponse getAdvertiserStatistic(UUID advertiserId) {
-        List<CampaignModel> campaigns = campaignRepository.findByAdvertiserId(advertiserId);
-        Map<UUID, CampaignModel> campaignMap = campaigns.stream()
-                .collect(Collectors.toMap(CampaignModel::getCampaignId, Function.identity()));
-
-        long totalImpressions = 0;
-        long totalClicks = 0;
-        float totalSpentImpressions = 0;
-        float totalSpentClicks = 0;
-
-        List<Object[]> impressionsData = historyImpressionsRepository.countImpressionsByAdvertiser(advertiserId);
-        for (Object[] row : impressionsData) {
-            UUID campaignId = (UUID) row[0];
-            Long count = (Long) row[1];
-            totalImpressions += count;
-            CampaignModel campaign = campaignMap.get(campaignId);
-            if (campaign != null) {
-                totalSpentImpressions += campaign.getCostPerImpression() * count;
-            }
-        }
-
-        List<Object[]> clicksData = historyClicksRepository.countClicksByAdvertiser(advertiserId);
-        for (Object[] row : clicksData) {
-            UUID campaignId = (UUID) row[0];
-            Long count = (Long) row[1];
-            totalClicks += count;
-            CampaignModel campaign = campaignMap.get(campaignId);
-            if (campaign != null) {
-                totalSpentClicks += campaign.getCostPerClick() * count;
-            }
-        }
-
-        StatisticResponse statistic = new StatisticResponse();
-        statistic.setImpressionsCount((int) totalImpressions);
-        statistic.setClicksCount((int) totalClicks);
-        statistic.setConversion(totalImpressions == 0 ? 0.0f
-                : (float) totalClicks / totalImpressions * 100.0f);
-        statistic.setSpentImpressions(totalSpentImpressions);
-        statistic.setSpentClicks(totalSpentClicks);
-        statistic.setSpentTotal(totalSpentImpressions + totalSpentClicks);
-        return statistic;
-    }
-
-    public List<StatisticResponse> getAdvertiserStatisticDaily(UUID advertiserId) {
-        List<CampaignModel> campaigns = campaignRepository.findByAdvertiserId(advertiserId);
-        Map<UUID, CampaignModel> campaignMap = campaigns.stream()
-                .collect(Collectors.toMap(CampaignModel::getCampaignId, Function.identity()));
-
-        Map<Integer, StatisticResponse> dailyStats = new HashMap<>();
-
-        List<Object[]> impressionsData = historyImpressionsRepository.countDailyImpressionsByAdvertiser(advertiserId);
-        for (Object[] row : impressionsData) {
-            Integer date = (Integer) row[0];
-            UUID campaignId = (UUID) row[1];
-            Long count = (Long) row[2];
-            StatisticResponse stat = dailyStats.computeIfAbsent(date, d -> new StatisticResponse());
-            int currentImpressions = stat.getImpressionsCount() == null ? 0 : stat.getImpressionsCount();
-            stat.setImpressionsCount(currentImpressions + count.intValue());
-            CampaignModel campaign = campaignMap.get(campaignId);
-            if (campaign != null) {
-                float currentSpent = stat.getSpentImpressions() == null ? 0 : stat.getSpentImpressions();
-                stat.setSpentImpressions(currentSpent + campaign.getCostPerImpression() * count);
-            }
-        }
-
-        List<Object[]> clicksData = historyClicksRepository.countDailyClicksByAdvertiser(advertiserId);
-        for (Object[] row : clicksData) {
-            Integer date = (Integer) row[0];
-            UUID campaignId = (UUID) row[1];
-            Long count = (Long) row[2];
-            StatisticResponse stat = dailyStats.computeIfAbsent(date, d -> new StatisticResponse());
-            int currentClicks = stat.getClicksCount() == null ? 0 : stat.getClicksCount();
-            stat.setClicksCount(currentClicks + count.intValue());
-            CampaignModel campaign = campaignMap.get(campaignId);
-            if (campaign != null) {
-                float currentSpent = stat.getSpentClicks() == null ? 0 : stat.getSpentClicks();
-                stat.setSpentClicks(currentSpent + campaign.getCostPerClick() * count);
-            }
-        }
-
-        dailyStats.values().forEach(stat -> {
-            int impressions = stat.getImpressionsCount() == null ? 0 : stat.getImpressionsCount();
-            int clicks = stat.getClicksCount() == null ? 0 : stat.getClicksCount();
-            float spentImpressions = stat.getSpentImpressions() == null ? 0.0f : stat.getSpentImpressions();
-            float spentClicks = stat.getSpentClicks() == null ? 0.0f : stat.getSpentClicks();
-            float conversion = impressions == 0 ? 0.0f : (float) clicks / impressions * 100.0f;
-            stat.setConversion(conversion);
-            stat.setSpentTotal(spentImpressions + spentClicks);
-            stat.setClicksCount(clicks);
-            stat.setSpentClicks(spentClicks);
-        });
-
-        return dailyStats.entrySet().stream()
-                .map(entry -> {
-                    StatisticResponse stat = entry.getValue();
-                    stat.setDate(entry.getKey());
-                    return stat;
-                })
-                .collect(Collectors.toList());
-    }
-
-    @Cacheable(value = "matchingAdsCache", key = "#client.clientId")
-    public List<CampaignModel> getMatchingAds(ClientModel client, Integer finalCurrentDate) {
-        return campaignRepository.findMatchingCampaigns(finalCurrentDate,
-                client.getGender(),
-                client.getAge(),
-                client.getLocation());
-    }
-
-    private float computeScore(CampaignModel campaign, int mlScore,
-                               float globalImpressionPenaltyFactor, float globalClickPenaltyFactor) {
+    private float computeScore(CampaignModel campaign, int mlScore) {
         float baseCost = 0.5f * (campaign.getCostPerImpression() + campaign.getCostPerClick());
         float normalizedMlScore = (float) Math.log(mlScore + 1);
         float mlPart = 0.25f * normalizedMlScore;
@@ -283,10 +200,15 @@ public class AdsService {
 
         float score = (baseCost + mlPart) * limitPenalty;
 
-        if (campaign.getCountClicks() > campaign.getClicksLimit() || campaign.getCountImpressions() > campaign.getImpressionsLimit()) {
-            float globalLimitPenaltyFactor = globalImpressionPenaltyFactor * globalClickPenaltyFactor;
-            score = score * globalLimitPenaltyFactor;
+        if (campaign.getCountImpressions() >= campaign.getImpressionsLimit() &&
+                campaign.getCountClicks() >= campaign.getClicksLimit()) {
+            score *= 0;
         }
+
+        if (campaign.getCountImpressions() >= campaign.getImpressionsLimit()) {
+            score *= 0.5;
+        }
+
         return score;
     }
 
@@ -368,16 +290,13 @@ public class AdsService {
         Map<UUID, Integer> mlScoreMap = mlScores.stream()
                 .collect(Collectors.toMap(MlScoreModel::getAdvertiserId, MlScoreModel::getScore));
 
-        float globalImpressionPenaltyFactor = computeGlobalImpressionPenaltyFactor();
-        float globalClickPenaltyFactor = computeGlobalClickPenaltyFactor();
-
         ForkJoinPool customThreadPool = new ForkJoinPool(8);
         try {
             return customThreadPool.submit(() ->
                     matchingAds.parallelStream()
                             .map(campaign -> {
                                 int mlScore = mlScoreMap.getOrDefault(campaign.getAdvertiserId(), 0);
-                                float score = computeScore(campaign, mlScore, globalImpressionPenaltyFactor, globalClickPenaltyFactor);
+                                float score = computeScore(campaign, mlScore);
                                 return new AbstractMap.SimpleEntry<>(campaign, score);
                             })
                             .max(Comparator.comparing(AbstractMap.SimpleEntry::getValue))

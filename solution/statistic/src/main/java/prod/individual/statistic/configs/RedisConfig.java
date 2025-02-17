@@ -1,4 +1,4 @@
-package prod.individual.sirnilin.configurations;
+package prod.individual.statistic.configs;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
