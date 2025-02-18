@@ -5,12 +5,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import prod.individual.sirnilin.models.*;
+import prod.individual.sirnilin.models.request.StatsRequest;
 import prod.individual.sirnilin.repositories.*;
 
 import java.util.*;
@@ -63,59 +65,70 @@ public class AdsService {
         }
     }
 
-    private List<CampaignModel> updateCountImpressionsAndClicks(List<UUID> campaignIds) {
-        List<UUID> missingImpressions = new ArrayList<>();
-        List<UUID> missingClicks = new ArrayList<>();
+    private Map<UUID, Map<String, Integer>> fetchStatsFromService(List<UUID> campaignIds) {
+        String url = UriComponentsBuilder.fromHttpUrl(serviceUrl)
+                .path("/history/stats")
+                .toUriString();
+
+        StatsRequest request = new StatsRequest(campaignIds);
+
+        try {
+            return restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    new HttpEntity<>(request),
+                    new ParameterizedTypeReference<Map<UUID, Map<String, Integer>>>() {}
+            ).getBody();
+        } catch (HttpClientErrorException e) {
+            System.err.println("Error fetching stats: " + e.getMessage());
+            return Collections.emptyMap();
+        }
+    }
+
+    public List<CampaignModel> updateCountImpressionsAndClicks(List<CampaignModel> campaigns) {
+        List<String> keys = new ArrayList<>();
+        List<UUID> missingIds = new ArrayList<>();
+        for (CampaignModel campaign : campaigns) {
+            keys.add("impressions:" + campaign.getCampaignId());
+            keys.add("clicks:" + campaign.getCampaignId());
+        }
+
+        List<Object> values = redisTemplate.opsForValue().multiGet(keys);
         Map<UUID, Integer> impressionsMap = new HashMap<>();
         Map<UUID, Integer> clicksMap = new HashMap<>();
 
-        for (UUID campaignId : campaignIds) {
-            String redisKeyImpressions = "impressions:" + campaignId;
-            String redisKeyClicks = "clicks:" + campaignId;
+        for (int i = 0; i < keys.size(); i += 2) {
+            UUID campaignId = UUID.fromString(keys.get(i).split(":")[1]);
+            Integer imp = values.get(i) != null ? (Integer) values.get(i) : null;
+            Integer clk = values.get(i + 1) != null ? (Integer) values.get(i + 1) : null;
 
-            Integer countImpressions = (Integer) redisTemplate.opsForValue().get(redisKeyImpressions);
-            Integer countClicks = (Integer) redisTemplate.opsForValue().get(redisKeyClicks);
-
-            if (countImpressions == null) {
-                missingImpressions.add(campaignId);
+            if (imp == null || clk == null) {
+                missingIds.add(campaignId);
             } else {
-                impressionsMap.put(campaignId, countImpressions);
-            }
-
-            if (countClicks == null) {
-                missingClicks.add(campaignId);
-            } else {
-                clicksMap.put(campaignId, countClicks);
+                impressionsMap.put(campaignId, imp);
+                clicksMap.put(campaignId, clk);
             }
         }
 
-        if (!missingImpressions.isEmpty()) {
-            Map<UUID, Integer> fetchedImpressions = fetchImpressionsFromStatisticsService(missingImpressions);
-            impressionsMap.putAll(fetchedImpressions);
-            for (Map.Entry<UUID, Integer> entry : fetchedImpressions.entrySet()) {
-                String redisKeyImpressions = "impressions:" + entry.getKey();
-                redisTemplate.opsForValue().set(redisKeyImpressions, entry.getValue());
+        if (!missingIds.isEmpty()) {
+            Map<UUID, Map<String, Integer>> fetchedStats = fetchStatsFromService(missingIds);
+            for (Map.Entry<UUID, Map<String, Integer>> entry : fetchedStats.entrySet()) {
+                UUID id = entry.getKey();
+                Integer imp = entry.getValue().getOrDefault("impressions", 0);
+                Integer clk = entry.getValue().getOrDefault("clicks", 0);
+
+                redisTemplate.opsForValue().set("impressions:" + id, imp);
+                redisTemplate.opsForValue().set("clicks:" + id, clk);
+
+                impressionsMap.put(id, imp);
+                clicksMap.put(id, clk);
             }
         }
-
-        if (!missingClicks.isEmpty()) {
-            Map<UUID, Integer> fetchedClicks = fetchClicksFromStatisticsService(missingClicks);
-            clicksMap.putAll(fetchedClicks);
-            for (Map.Entry<UUID, Integer> entry : fetchedClicks.entrySet()) {
-                String redisKeyClicks = "clicks:" + entry.getKey();
-                redisTemplate.opsForValue().set(redisKeyClicks, entry.getValue());
-            }
-        }
-
-        List<CampaignModel> campaigns = campaignRepository.findByCampaignIdIn(campaignIds);
 
         for (CampaignModel campaign : campaigns) {
             UUID campaignId = campaign.getCampaignId();
-            Integer countImpressions = impressionsMap.getOrDefault(campaignId, 0);
-            Integer countClicks = clicksMap.getOrDefault(campaignId, 0);
-
-            campaign.setCountImpressions(countImpressions);
-            campaign.setCountClicks(countClicks);
+            campaign.setCountImpressions(impressionsMap.getOrDefault(campaignId, 0));
+            campaign.setCountClicks(clicksMap.getOrDefault(campaignId, 0));
         }
 
         return campaigns;
@@ -133,13 +146,19 @@ public class AdsService {
 
         List<CampaignModel> matchingAds = matchingAdsService.getMatchingAds(client, currentDate);
 
+        String redisViewedKey = "viewed_ads:" + clientId;
+        Set<Object> viewedCampaigns = redisTemplate.opsForSet().members(redisViewedKey);
+        if (viewedCampaigns != null && !viewedCampaigns.isEmpty()) {
+            matchingAds = matchingAds.stream()
+                    .filter(campaign -> !viewedCampaigns.contains(campaign.getCampaignId().toString()))
+                    .collect(Collectors.toList());
+        }
+
         if (matchingAds.isEmpty()) {
             return null;
         }
 
-        matchingAds = updateCountImpressionsAndClicks(matchingAds.stream()
-                .map(CampaignModel::getCampaignId)
-                .collect(Collectors.toList()));
+        matchingAds = updateCountImpressionsAndClicks(matchingAds);
 
         CampaignModel bestCampaign = getBestCampaign(matchingAds, client);
 
@@ -149,10 +168,10 @@ public class AdsService {
 
         kafkaProducer.sendImpressionEvent(new HistoryEvent
                 (clientId,
-                bestCampaign.getCampaignId(),
-                bestCampaign.getAdvertiserId(),
-                currentDate,
-                bestCampaign.getCostPerImpression())
+                        bestCampaign.getCampaignId(),
+                        bestCampaign.getAdvertiserId(),
+                        currentDate,
+                        bestCampaign.getCostPerImpression())
         );
 
         return bestCampaign;
@@ -168,9 +187,9 @@ public class AdsService {
         CampaignModel campaign = campaignRepository.findByCampaignId(campaignId)
                 .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
 
-        Boolean exists = historyImpressionsRepository.existsByClientIdAndCampaignId(clientId, campaignId);
-
-        if (!exists) {
+        String redisViewedKey = "viewed_ads:" + clientId;
+        Boolean alreadyViewed = redisTemplate.opsForSet().isMember(redisViewedKey, campaignId.toString());
+        if (alreadyViewed == null || !alreadyViewed) {
             throw new IllegalArgumentException("Impression not found");
         }
 

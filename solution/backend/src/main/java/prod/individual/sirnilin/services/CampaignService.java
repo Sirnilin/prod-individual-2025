@@ -73,7 +73,14 @@ public class CampaignService {
         campaign.setEndDate(request.getEndDate());
         campaign.setTargeting(target);
 
-        return campaignRepository.save(campaign);
+        campaign = campaignRepository.save(campaign);
+
+        String redisKeyImpressions = "impressions:" + campaign.getCampaignId();
+        redisTemplate.opsForValue().set(redisKeyImpressions, 0);
+        String redisKeyClicks = "clicks:" + campaign.getCampaignId();
+        redisTemplate.opsForValue().set(redisKeyClicks, 0);
+
+        return campaign;
     }
 
     public CampaignModel getCampaign(UUID campaignId) {

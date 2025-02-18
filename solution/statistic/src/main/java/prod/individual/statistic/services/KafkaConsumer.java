@@ -21,14 +21,17 @@ public class KafkaConsumer {
 
     @KafkaListener(topics = "impression-events", groupId = "ad-statistics")
     public void consumeImpressionEvent(HistoryEvent event) {
-        log.info("Received impression event: {}", event);
+        String redisViewedKey = "viewed_ads:" + event.getClientId().toString();
+        Boolean alreadyViewed = redisTemplate.opsForSet().isMember(redisViewedKey, event.getCampaignId().toString());
 
-        Boolean exist = historyImpressionsRepository.existsByClientIdAndCampaignId(event.getClientId(), event.getCampaignId());
-
-        if (exist) {
+        if (alreadyViewed != null && alreadyViewed) {
             return;
         }
+        redisTemplate.opsForSet().add(redisViewedKey, event.getCampaignId().toString());
 
+        if (historyImpressionsRepository.existsByClientIdAndCampaignId(event.getClientId(), event.getCampaignId())) {
+            return;
+        }
         historyImpressionsRepository.save(new HistoryImpressionsModel(
                 event.getClientId(),
                 event.getCampaignId(),
@@ -36,7 +39,6 @@ public class KafkaConsumer {
                 event.getCurrentDate(),
                 event.getCost()
         ));
-
 
         String redisKey = "impressions:" + event.getCampaignId();
         redisTemplate.opsForValue().increment(redisKey);
