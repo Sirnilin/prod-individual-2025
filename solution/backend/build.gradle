@@ -44,6 +44,7 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     implementation 'org.springframework.boot:spring-boot-starter-validation:3.4.2'
     testImplementation 'org.mockito:mockito-core'
+    implementation 'com.amazonaws:aws-java-sdk-s3:1.12.538'
 }
 
 publishing {

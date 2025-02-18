@@ -1,6 +1,7 @@
 package prod.individual.sirnilin.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import jakarta.persistence.*;
@@ -77,4 +78,7 @@ public class CampaignModel {
 
     @JsonIgnore
     private int countClicks;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String imageUrl;
 }

@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import prod.individual.sirnilin.models.CampaignModel;
 import prod.individual.sirnilin.models.TargetModel;
 import prod.individual.sirnilin.models.TimeModel;
@@ -20,10 +21,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CampaignService {
 
-    final private CampaignRepository campaignRepository;
-    final private AdvertiserRepository advertiserRepository;
-    final private RedisTemplate<String, Object> redisTemplate;
-    final private TimeRepository timeRepository;
+    private final CampaignRepository campaignRepository;
+    private final AdvertiserRepository advertiserRepository;
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final TimeRepository timeRepository;
+    private final S3Service s3Service;
+
 
     @CacheEvict(value = "matchingAdsCache", allEntries = true)
     public CampaignModel createCampaign(CampaignCreateRequest request, UUID advertiserId) {
@@ -166,5 +169,18 @@ public class CampaignService {
 
     public List<CampaignModel> getCampaignsByAdvertiserId(UUID advertiserId) {
         return campaignRepository.findByAdvertiserId(advertiserId);
+    }
+
+    public CampaignModel addImage(UUID campaignId, MultipartFile image, UUID advertiserId) {
+        CampaignModel campaign = campaignRepository.findByCampaignId(campaignId)
+                .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
+
+        if (!campaign.getAdvertiserId().equals(advertiserId)) {
+            throw new IllegalArgumentException("Advertiser does not have access to this campaign");
+        }
+
+        campaign.setImageUrl(s3Service.uploadFile(image));
+
+        return campaignRepository.save(campaign);
     }
 }

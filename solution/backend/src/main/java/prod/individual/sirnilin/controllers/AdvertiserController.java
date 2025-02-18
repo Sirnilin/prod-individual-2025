@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import prod.individual.sirnilin.models.AdvertiserModel;
 import prod.individual.sirnilin.models.CampaignModel;
 import prod.individual.sirnilin.models.request.CampaignCreateRequest;
@@ -152,6 +153,20 @@ public class AdvertiserController {
         } catch (IllegalArgumentException e) {
             HashMap<String, String> errorResponse = new HashMap<>();
             errorResponse.put("message", "Get all campaigns failed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    @PostMapping("/{advertiserId}/campaigns/{campaignId}/uploadImage")
+    public ResponseEntity<?> uploadImage(@PathVariable String advertiserId, @PathVariable String campaignId, @RequestParam("file") MultipartFile file) {
+        try {
+            UUID advertiserUuid = UUID.fromString(advertiserId);
+            UUID campaignUuid = UUID.fromString(campaignId);
+
+            return ResponseEntity.ok(campaignService.addImage(campaignUuid, file, advertiserUuid));
+        } catch (IllegalArgumentException e) {
+            HashMap<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("message", "Upload image failed: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
     }
