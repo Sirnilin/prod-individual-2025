@@ -56,4 +56,19 @@ public class StatisticController {
             return ResponseEntity.badRequest().body("Get advertiser daily statistic failed: " + e.getMessage());
         }
     }
+
+    @GetMapping("/views")
+    public ResponseEntity<Integer> getViewCount() {
+        return ResponseEntity.ok(statisticService.getViewCount());
+    }
+
+    @GetMapping("/clicks")
+    public ResponseEntity<Integer> getClickCount() {
+        return ResponseEntity.ok(statisticService.getClickCount());
+    }
+
+    @GetMapping("/earnings")
+    public ResponseEntity<Double> getEarnings() {
+        return ResponseEntity.ok(statisticService.getEarnings());
+    }
 }

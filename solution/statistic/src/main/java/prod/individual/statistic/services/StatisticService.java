@@ -182,4 +182,24 @@ public class StatisticService {
                 })
                 .collect(Collectors.toList());
     }
+
+    public int getViewCount() {
+        return historyImpressionsRepository.findAll().size();
+    }
+
+    public int getClickCount() {
+        return historyClicksRepository.findAll().size();
+    }
+
+    public double getEarnings() {
+        float spentImpressions = historyImpressionsRepository.findAll().stream()
+                .map(HistoryImpressionsModel::getCost)
+                .reduce(0.0f, Float::sum);
+
+        float spentClicks = historyClicksRepository.findAll().stream()
+                .map(HistoryClicksModel::getCost)
+                .reduce(0.0f, Float::sum);
+
+        return spentImpressions + spentClicks;
+    }
 }
