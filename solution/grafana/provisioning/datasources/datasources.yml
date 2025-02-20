@@ -1,0 +1,12 @@
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: bedjak305o45cc
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    updateIntervalSeconds: 10
+    jsonData:
+      timeInterval: "5s"

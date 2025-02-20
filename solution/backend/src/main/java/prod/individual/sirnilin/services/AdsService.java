@@ -1,8 +1,8 @@
 package prod.individual.sirnilin.services;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpEntity;
@@ -33,6 +33,7 @@ public class AdsService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final KafkaProducer kafkaProducer;
     private final MatchingAdsService matchingAdsService;
+    private final MetricsExporter metricsExporter;
 
     @Value("${service.url}")
     private String serviceUrl;
@@ -177,6 +178,8 @@ public class AdsService {
                         bestCampaign.getCostPerImpression())
         );
 
+        metricsExporter.recordImpression(bestCampaign.getCampaignId(), currentDate);
+
         return bestCampaign;
     }
 
@@ -204,6 +207,8 @@ public class AdsService {
                 currentDate,
                 campaign.getCostPerClick())
         );
+
+        metricsExporter.recordClick(campaignId, currentDate);
     }
 
     private float computeScore(CampaignModel campaign, int mlScore) {
