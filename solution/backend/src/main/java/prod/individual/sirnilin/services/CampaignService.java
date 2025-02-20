@@ -26,7 +26,7 @@ public class CampaignService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final TimeRepository timeRepository;
     private final S3Service s3Service;
-    private final ProfanityFilterService profanityFilterService;
+
 
 
     @CacheEvict(value = "matchingAdsCache", allEntries = true)
@@ -196,9 +196,5 @@ public class CampaignService {
         campaign.setImageUrl(null);
 
         return campaignRepository.save(campaign);
-    }
-
-    public Boolean checkCampaignText(String text) {
-        return profanityFilterService.containsProfanity(text);
     }
 }

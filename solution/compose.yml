@@ -19,6 +19,7 @@ services:
       S3_ACCESS_KEY: minioadmin
       S3_SECRET_KEY: minioadmin
       S3_BUCKET: backend
+      GIGA_CHAT_URL: http://gigachat:5000
     depends_on:
       - backend-db
       - redis
@@ -175,6 +176,17 @@ services:
     restart: always
     networks:
       - app-network
+
+  adservice:
+    build: ./gigachat
+    container_name: gigachat
+    hostname: gigachat
+    ports:
+      - "5000:5000"
+    environment:
+      GIGACHAT_CREDENTIALS: ODdlOWM1YTgtNmQ4OC00MTc3LTg2NTItZjk5ZWY2MWFiYzUwOjlhODY1NjJhLTk2MWYtNGJmMi1hYTdhLWUyMTgxYzcyZGRjNw==
+    networks:
+        - app-network
 
 volumes:
   backend_db_data:

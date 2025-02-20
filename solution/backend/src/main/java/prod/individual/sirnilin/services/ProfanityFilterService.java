@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import prod.individual.sirnilin.models.BannedWordModel;
 import prod.individual.sirnilin.repositories.BannedWordRepository;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -15,7 +16,7 @@ import java.util.regex.Pattern;
 public class ProfanityFilterService {
 
     private final BannedWordRepository bannedWordRepository;
-    private Set<String> bannedWords;
+    private Set<String> bannedWords = new HashSet<>();;
     private Pattern bannedPattern;
 
     @PostConstruct

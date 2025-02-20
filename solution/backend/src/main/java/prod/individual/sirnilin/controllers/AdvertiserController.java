@@ -14,6 +14,7 @@ import prod.individual.sirnilin.models.request.MlScoreRequest;
 import prod.individual.sirnilin.services.AdvertiserService;
 import prod.individual.sirnilin.services.CampaignService;
 import prod.individual.sirnilin.services.MlScoreService;
+import prod.individual.sirnilin.services.ProfanityFilterService;
 
 import java.util.*;
 
@@ -24,6 +25,7 @@ public class AdvertiserController {
 
     private final AdvertiserService advertiserService;
     private final CampaignService campaignService;
+    private final ProfanityFilterService profanityFilterService;
 
     @PostMapping("/bulk")
     public ResponseEntity<?> bulkInsert(@Valid @RequestBody List<AdvertiserModel> advertiserModels) {
@@ -80,8 +82,8 @@ public class AdvertiserController {
         try {
             UUID uuid = UUID.fromString(advertiserId);
 
-            if (campaignService.checkCampaignText(request.getAdText()) ||
-                campaignService.checkCampaignText(request.getAdTitle())) {
+            if (profanityFilterService.containsProfanity(request.getAdText()) ||
+                    profanityFilterService.containsProfanity(request.getAdTitle())) {
                 throw new IllegalArgumentException("Campaign contains profanity");
             }
 
@@ -145,8 +147,8 @@ public class AdvertiserController {
             UUID advertiserUuid = UUID.fromString(advertiserId);
             UUID campaignUuid = UUID.fromString(campaignId);
 
-            if (campaignService.checkCampaignText(request.getAdText()) ||
-                campaignService.checkCampaignText(request.getAdTitle())) {
+            if (profanityFilterService.containsProfanity(request.getAdText()) ||
+                    profanityFilterService.containsProfanity(request.getAdTitle())) {
                 throw new IllegalArgumentException("Campaign contains profanity");
             }
 
