@@ -16,7 +16,7 @@ import java.util.HashMap;
 @RequiredArgsConstructor
 public class MlScoreController {
 
-    final private MlScoreService mlScoreService;
+    private final MlScoreService mlScoreService;
 
     @PostMapping("/ml-scores")
     public ResponseEntity<?> saveMlScore(@Valid @RequestBody MlScoreRequest mlScoreRequest) {

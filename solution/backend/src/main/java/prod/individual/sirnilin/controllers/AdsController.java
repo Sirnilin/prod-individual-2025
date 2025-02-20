@@ -16,7 +16,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AdsController {
 
-    final AdsService adsService;
+    private final AdsService adsService;
 
     @GetMapping()
     public ResponseEntity<?> getAds(@RequestParam("client_id") String clientId) {

@@ -13,7 +13,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ClientService {
 
-    final private ClientRepository clientRepository;
+    private final ClientRepository clientRepository;
 
     public List<ClientModel> bulkInsert(List<ClientModel> clientModels) {
         for (ClientModel clientModel : clientModels) {

@@ -26,6 +26,7 @@ public class CampaignService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final TimeRepository timeRepository;
     private final S3Service s3Service;
+    private final ProfanityFilterService profanityFilterService;
 
 
     @CacheEvict(value = "matchingAdsCache", allEntries = true)
@@ -182,5 +183,22 @@ public class CampaignService {
         campaign.setImageUrl(s3Service.uploadFile(image));
 
         return campaignRepository.save(campaign);
+    }
+
+    public CampaignModel removeImage(UUID campaignId, UUID advertiserId) {
+        CampaignModel campaign = campaignRepository.findByCampaignId(campaignId)
+                .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
+
+        if (!campaign.getAdvertiserId().equals(advertiserId)) {
+            throw new IllegalArgumentException("Advertiser does not have access to this campaign");
+        }
+
+        campaign.setImageUrl(null);
+
+        return campaignRepository.save(campaign);
+    }
+
+    public Boolean checkCampaignText(String text) {
+        return profanityFilterService.containsProfanity(text);
     }
 }

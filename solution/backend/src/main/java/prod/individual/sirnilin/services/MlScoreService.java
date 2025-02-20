@@ -13,9 +13,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class MlScoreService {
 
-    final private MlScoreRepository mlScoreRepository;
-    final private AdvertiserRepository advertiserRepository;
-    final private ClientRepository clientRepository;
+    private final MlScoreRepository mlScoreRepository;
+    private final AdvertiserRepository advertiserRepository;
+    private final ClientRepository clientRepository;
 
     public MlScoreModel saveScore(UUID advertiserId, UUID clientId, int score) {
         if (clientRepository.findByClientId(clientId).isEmpty() ||

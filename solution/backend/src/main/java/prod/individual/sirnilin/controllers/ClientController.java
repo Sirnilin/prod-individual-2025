@@ -17,7 +17,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ClientController {
 
-    final private ClientService clientService;
+    private final ClientService clientService;
 
     @PostMapping("/bulk")
     public ResponseEntity<?> bulkInsert(@Valid @RequestBody List<ClientModel> clientModels) {

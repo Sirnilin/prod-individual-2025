@@ -22,8 +22,8 @@ import java.util.*;
 @RequiredArgsConstructor
 public class AdvertiserController {
 
-    final private AdvertiserService advertiserService;
-    final private CampaignService campaignService;
+    private final AdvertiserService advertiserService;
+    private final CampaignService campaignService;
 
     @PostMapping("/bulk")
     public ResponseEntity<?> bulkInsert(@Valid @RequestBody List<AdvertiserModel> advertiserModels) {
@@ -61,6 +61,30 @@ public class AdvertiserController {
     public ResponseEntity<?> createCampaign(@Valid @RequestBody CampaignCreateRequest request, @PathVariable String advertiserId) {
         try {
             UUID uuid = UUID.fromString(advertiserId);
+            if (advertiserService.getAdvertiserById(uuid) == null) {
+                HashMap<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("message", "Advertiser not found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+            }
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(campaignService.createCampaign(request, uuid));
+        } catch (IllegalArgumentException e) {
+            HashMap<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("message", "Create campaign failed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    @PostMapping("/{advertiserId}/campaigns/V2")
+    public ResponseEntity<?> createCampaignV2(@Valid @RequestBody CampaignCreateRequest request, @PathVariable String advertiserId) {
+        try {
+            UUID uuid = UUID.fromString(advertiserId);
+
+            if (campaignService.checkCampaignText(request.getAdText()) ||
+                campaignService.checkCampaignText(request.getAdTitle())) {
+                throw new IllegalArgumentException("Campaign contains profanity");
+            }
+
             if (advertiserService.getAdvertiserById(uuid) == null) {
                 HashMap<String, String> errorResponse = new HashMap<>();
                 errorResponse.put("message", "Advertiser not found");
@@ -115,6 +139,25 @@ public class AdvertiserController {
         }
     }
 
+    @PutMapping("/{advertiserId}/campaigns/{campaignId}/V2")
+    public ResponseEntity<?> updateCampaignV2(@Valid @RequestBody CampaignUpdateRequest request, @PathVariable String advertiserId, @PathVariable String campaignId) {
+        try {
+            UUID advertiserUuid = UUID.fromString(advertiserId);
+            UUID campaignUuid = UUID.fromString(campaignId);
+
+            if (campaignService.checkCampaignText(request.getAdText()) ||
+                campaignService.checkCampaignText(request.getAdTitle())) {
+                throw new IllegalArgumentException("Campaign contains profanity");
+            }
+
+            return ResponseEntity.ok(campaignService.updateCampaign(request, campaignUuid, advertiserUuid));
+        } catch (IllegalArgumentException e) {
+            HashMap<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("message", "Update campaign failed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
     @DeleteMapping("/{advertiserId}/campaigns/{campaignId}")
     public ResponseEntity<?> deleteCampaign(@PathVariable String advertiserId, @PathVariable String campaignId) {
         try {
@@ -160,6 +203,7 @@ public class AdvertiserController {
     @PostMapping("/{advertiserId}/campaigns/{campaignId}/uploadImage")
     public ResponseEntity<?> uploadImage(@PathVariable String advertiserId, @PathVariable String campaignId, @RequestParam("file") MultipartFile file) {
         try {
+            validateFile(file);
             UUID advertiserUuid = UUID.fromString(advertiserId);
             UUID campaignUuid = UUID.fromString(campaignId);
 
@@ -168,6 +212,35 @@ public class AdvertiserController {
             HashMap<String, String> errorResponse = new HashMap<>();
             errorResponse.put("message", "Upload image failed: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    @DeleteMapping("/{advertiserId}/campaigns/{campaignId}/removeImage")
+    public ResponseEntity<?> removeImage(@PathVariable String advertiserId, @PathVariable String campaignId) {
+        try {
+            UUID advertiserUuid = UUID.fromString(advertiserId);
+            UUID campaignUuid = UUID.fromString(campaignId);
+
+            return ResponseEntity.ok(campaignService.removeImage(campaignUuid, advertiserUuid));
+        } catch (IllegalArgumentException e) {
+            HashMap<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("message", "Remove image failed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    private void validateFile(MultipartFile file) {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("File is empty");
+        }
+
+        if (file.getSize() > 15 * 1024 * 1024) {
+            throw new IllegalArgumentException("File size exceeds limit of 15MB");
+        }
+
+        String contentType = file.getContentType();
+        if (!Arrays.asList("image/jpeg", "image/png", "image/gif").contains(contentType)) {
+            throw new IllegalArgumentException("Invalid file format");
         }
     }
 }

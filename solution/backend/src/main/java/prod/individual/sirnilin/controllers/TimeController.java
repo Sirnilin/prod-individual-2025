@@ -18,8 +18,8 @@ import prod.individual.sirnilin.repositories.TimeRepository;
 @RequiredArgsConstructor
 public class TimeController {
 
-    final private TimeRepository timeRepository;
-    final private RedisTemplate<String, Object> redisTemplate;
+    private final TimeRepository timeRepository;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @PostMapping("/advance")
     @CacheEvict(value = "matchingAdsCache", allEntries = true)
