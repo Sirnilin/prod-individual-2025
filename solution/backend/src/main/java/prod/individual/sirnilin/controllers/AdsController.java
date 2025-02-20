@@ -41,7 +41,7 @@ public class AdsController {
         }
     }
 
-    @GetMapping("{adId}/click")
+    @PostMapping("{adId}/click")
     public ResponseEntity<?> adsClick(@Valid @RequestBody AdsClickRequest adsClickRequest, @PathVariable String adId) {
         try {
             UUID adUUID = UUID.fromString(adId);
