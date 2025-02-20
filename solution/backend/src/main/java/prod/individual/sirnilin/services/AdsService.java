@@ -224,7 +224,6 @@ public class AdsService {
 
     private float computeScore(CampaignModel campaign, int mlScore) {
         float baseCost = 0.5f * (campaign.getCostPerImpression() + campaign.getCostPerClick());
-        baseCost = (float) Math.log(baseCost + 1);
         float normalizedMlScore = (float) Math.log(mlScore + 1);
         float mlPart = 0.25f * normalizedMlScore;
         float impressionRatio = campaign.getImpressionsLimit() != 0
