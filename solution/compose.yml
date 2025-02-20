@@ -163,6 +163,18 @@ services:
     networks:
       - app-network
 
+  bot:
+    build: ./bot
+    container_name: telegram_bot
+    environment:
+      - TELEGRAM_BOT_TOKEN=7943694592:AAE1nGTCMqFjTYIsdPg-LflfBOPOzpqJeqA
+      - BACKEND_URL=http://backend-service:8080
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - app-network
+
 volumes:
   backend_db_data:
   statistic_db_data:

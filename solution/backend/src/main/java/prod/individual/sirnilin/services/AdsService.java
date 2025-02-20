@@ -142,6 +142,7 @@ public class AdsService {
 
         if (currentDate == null) {
             currentDate = timeRepository.findById(1l).orElse(new TimeModel(0)).getCurrentDate();
+            redisTemplate.opsForValue().set("currentDate", currentDate);
         }
 
         List<CampaignModel> matchingAds = matchingAdsService.getMatchingAds(client, currentDate);
@@ -166,6 +167,8 @@ public class AdsService {
             return null;
         }
 
+        redisTemplate.opsForSet().add(redisViewedKey, bestCampaign.getCampaignId().toString());
+
         kafkaProducer.sendImpressionEvent(new HistoryEvent
                 (clientId,
                         bestCampaign.getCampaignId(),
@@ -182,6 +185,7 @@ public class AdsService {
 
         if (currentDate == null) {
             currentDate = timeRepository.findById(1l).orElse(new TimeModel(0)).getCurrentDate();
+            redisTemplate.opsForValue().set("currentDate", currentDate);
         }
 
         CampaignModel campaign = campaignRepository.findByCampaignId(campaignId)
