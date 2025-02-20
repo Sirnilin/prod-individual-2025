@@ -15,4 +15,5 @@ public class HistoryEvent {
     private UUID advertiserId;
     private Integer currentDate;
     private Float cost;
+    private Boolean error;
 }

@@ -34,6 +34,21 @@ public class KafkaConsumer {
 
         String redisKey = "impressions:" + event.getCampaignId();
         redisTemplate.opsForValue().increment(redisKey);
+
+        redisTemplate.opsForValue().increment("total_impressions");
+
+        if (event.getError()) {
+            redisTemplate.opsForValue().increment("error_impressions");
+        }
+
+
+        Long totalImpressions = (Long) redisTemplate.opsForValue().get("total_impressions");
+        Long errorImpressions = (Long) redisTemplate.opsForValue().get("error_impressions");
+
+        if (totalImpressions != null && totalImpressions > 0) {
+            double errorRate = (double) errorImpressions / totalImpressions * 100;
+            redisTemplate.opsForValue().set("error_rate", errorRate);
+        }
     }
 
     @KafkaListener(topics = "click-events", groupId = "ad-statistics")
