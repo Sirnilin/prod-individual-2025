@@ -240,11 +240,11 @@ public class AdsService {
 
         if (campaign.getCountImpressions() >= campaign.getImpressionsLimit() &&
                 campaign.getCountClicks() >= campaign.getClicksLimit()) {
-            score *= 0;
+            score *= 0.25;
         }
 
         if (campaign.getCountImpressions() >= campaign.getImpressionsLimit()) {
-            score *= 0.5;
+            score *= 0.75;
         }
 
         return score;
