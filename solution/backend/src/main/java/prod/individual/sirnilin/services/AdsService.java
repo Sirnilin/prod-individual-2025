@@ -197,7 +197,7 @@ public class AdsService {
         String redisViewedKey = "viewed_ads:" + clientId;
         Boolean alreadyViewed = redisTemplate.opsForSet().isMember(redisViewedKey, campaignId.toString());
         if (alreadyViewed == null || !alreadyViewed) {
-            throw new IllegalArgumentException("Impression not found");
+            return;
         }
 
         kafkaProducer.sendClickEvent(new HistoryEvent
