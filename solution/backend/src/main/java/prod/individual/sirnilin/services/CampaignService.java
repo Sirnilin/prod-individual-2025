@@ -153,6 +153,10 @@ public class CampaignService {
         campaign.setStartDate(request.getStartDate());
         campaign.setEndDate(request.getEndDate());
 
+        String redisKeyImpressions = "impressions:" + campaign.getCampaignId();
+
+        redisTemplate.opsForValue().set(redisKeyImpressions, 0);
+
         return campaignRepository.save(campaign);
     }
 

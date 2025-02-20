@@ -140,29 +140,38 @@ public class AdsService {
                 .orElseThrow(() -> new IllegalArgumentException("Client not found"));
 
         Integer currentDate = (Integer) redisTemplate.opsForValue().get("currentDate");
-
         if (currentDate == null) {
             currentDate = timeRepository.findById(1l).orElse(new TimeModel(0)).getCurrentDate();
             redisTemplate.opsForValue().set("currentDate", currentDate);
         }
 
-        List<CampaignModel> matchingAds = matchingAdsService.getMatchingAds(client, currentDate);
+        List<CampaignModel> candidateAds = matchingAdsService.getMatchingAds(client, currentDate);
 
         String redisViewedKey = "viewed_ads:" + clientId;
         Set<Object> viewedCampaigns = redisTemplate.opsForSet().members(redisViewedKey);
-        if (viewedCampaigns != null && !viewedCampaigns.isEmpty()) {
-            matchingAds = matchingAds.stream()
-                    .filter(campaign -> !viewedCampaigns.contains(campaign.getCampaignId().toString()))
+
+        List<CampaignModel> newAds = candidateAds.stream()
+                .filter(campaign -> viewedCampaigns == null || !viewedCampaigns.contains(campaign.getCampaignId().toString()))
+                .collect(Collectors.toList());
+
+        List<CampaignModel> adsToConsider;
+        if (!newAds.isEmpty()) {
+            adsToConsider = newAds;
+        } else {
+            String redisClickedKey = "clicked_ads:" + clientId;
+            Set<Object> clickedCampaigns = redisTemplate.opsForSet().members(redisClickedKey);
+            adsToConsider = candidateAds.stream()
+                    .filter(campaign -> clickedCampaigns == null || !clickedCampaigns.contains(campaign.getCampaignId().toString()))
                     .collect(Collectors.toList());
         }
 
-        if (matchingAds.isEmpty()) {
+        if (adsToConsider.isEmpty()) {
             return null;
         }
 
-        matchingAds = updateCountImpressionsAndClicks(matchingAds);
 
-        CampaignModel bestCampaign = getBestCampaign(matchingAds, client);
+        List<CampaignModel> updatedAds = updateCountImpressionsAndClicks(adsToConsider);
+        CampaignModel bestCampaign = getBestCampaign(updatedAds, client);
 
         if (bestCampaign == null) {
             return null;
@@ -170,14 +179,13 @@ public class AdsService {
 
         redisTemplate.opsForSet().add(redisViewedKey, bestCampaign.getCampaignId().toString());
 
-        kafkaProducer.sendImpressionEvent(new HistoryEvent
-                (clientId,
-                        bestCampaign.getCampaignId(),
-                        bestCampaign.getAdvertiserId(),
-                        currentDate,
-                        bestCampaign.getCostPerImpression())
-        );
-
+        kafkaProducer.sendImpressionEvent(new HistoryEvent(
+                clientId,
+                bestCampaign.getCampaignId(),
+                bestCampaign.getAdvertiserId(),
+                currentDate,
+                bestCampaign.getCostPerImpression()
+        ));
         metricsExporter.recordImpression(bestCampaign.getCampaignId(), currentDate);
 
         return bestCampaign;
@@ -200,12 +208,15 @@ public class AdsService {
             return;
         }
 
+        String redisClickedKey = "clicked_ads:" + clientId;
+        redisTemplate.opsForSet().add(redisClickedKey, campaignId.toString());
+
         kafkaProducer.sendClickEvent(new HistoryEvent
                 (clientId,
-                campaignId,
-                campaign.getAdvertiserId(),
-                currentDate,
-                campaign.getCostPerClick())
+                        campaignId,
+                        campaign.getAdvertiserId(),
+                        currentDate,
+                        campaign.getCostPerClick())
         );
 
         metricsExporter.recordClick(campaignId, currentDate);
