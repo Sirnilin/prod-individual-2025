@@ -17,7 +17,6 @@ public class MatchingAdsService {
 
     @Cacheable(value = "matchingAdsCache", key = "#client.clientId")
     public List<CampaignModel> getMatchingAds(ClientModel client, Integer finalCurrentDate) {
-        System.out.println("Fetching matching ads from DB...");
         return campaignRepository.findMatchingCampaigns(finalCurrentDate,
                 client.getGender(),
                 client.getAge(),
