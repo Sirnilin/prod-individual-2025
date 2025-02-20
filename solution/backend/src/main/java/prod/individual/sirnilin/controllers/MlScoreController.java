@@ -27,7 +27,7 @@ public class MlScoreController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
             }
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(mlScoreRequest);
+            return ResponseEntity.status(HttpStatus.OK).body(mlScoreRequest);
         } catch (Exception e) {
             HashMap<String, String> errorResponse = new HashMap<>();
             errorResponse.put("message", "Save ML score failed: " + e.getMessage());

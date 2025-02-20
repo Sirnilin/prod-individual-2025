@@ -31,7 +31,7 @@ public class AdvertiserController {
     public ResponseEntity<?> bulkInsert(@Valid @RequestBody List<AdvertiserModel> advertiserModels) {
         try {
             advertiserService.bulkInsert(advertiserModels);
-            return ResponseEntity.status(HttpStatus.CREATED).body(advertiserModels);
+            return ResponseEntity.status(HttpStatus.OK).body(advertiserModels);
         } catch (Exception e) {
             HashMap<String, String> errorResponse = new HashMap<>();
             errorResponse.put("message", "Bulk insert/update failed: " + e.getMessage());
@@ -69,7 +69,7 @@ public class AdvertiserController {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
             }
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(campaignService.createCampaign(request, uuid));
+            return ResponseEntity.status(HttpStatus.OK).body(campaignService.createCampaign(request, uuid));
         } catch (IllegalArgumentException e) {
             HashMap<String, String> errorResponse = new HashMap<>();
             errorResponse.put("message", "Create campaign failed: " + e.getMessage());
@@ -93,7 +93,7 @@ public class AdvertiserController {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
             }
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(campaignService.createCampaign(request, uuid));
+            return ResponseEntity.status(HttpStatus.OK).body(campaignService.createCampaign(request, uuid));
         } catch (IllegalArgumentException e) {
             HashMap<String, String> errorResponse = new HashMap<>();
             errorResponse.put("message", "Create campaign failed: " + e.getMessage());
