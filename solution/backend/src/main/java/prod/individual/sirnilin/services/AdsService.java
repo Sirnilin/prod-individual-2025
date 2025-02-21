@@ -252,6 +252,10 @@ public class AdsService {
             click = (float) (1 - error*10);
         }
 
+        if ((impress != 1 || click != 1) && error >= 0.05) {
+            return 0;
+        }
+
         return score * impress * click;
     }
 
