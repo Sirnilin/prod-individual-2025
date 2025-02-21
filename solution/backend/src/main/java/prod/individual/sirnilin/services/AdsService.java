@@ -232,34 +232,29 @@ public class AdsService {
 
     private float computeScore(CampaignModel campaign, int mlScore, double error, boolean isViewed) {
         float baseCost = 0.5f * (campaign.getCostPerImpression() + campaign.getCostPerClick());
-        baseCost = (float) Math.log1p(baseCost + 1);
+        baseCost = (float) Math.log1p(baseCost);
 
-        float normalizedMlScore = (float) Math.log1p(mlScore + 1);
+        float normalizedMlScore = (float) Math.log1p(mlScore);
         float mlPart = 0.25f * normalizedMlScore;
 
         float limitPenalty;
-        if (campaign.getCountImpressions() >= campaign.getImpressionsLimit()) {
-            limitPenalty = isViewed ? 0.00025f : 0;
-
-            if (limitPenalty == 0 && error <= 0.045) {
-                limitPenalty = 0.00000001f;
-            }
-        } else if (campaign.getCountImpressions() == 0) {
-            limitPenalty = 1;
+        if (isViewed) {
+            limitPenalty = 1.0f;
         } else {
-            float impressionRatio = (campaign.getImpressionsLimit() != 0)
-                    ? (float) campaign.getCountImpressions() / campaign.getImpressionsLimit()
-                    : 1;
-            float deviation = Math.abs(impressionRatio - 1);
-            float impressionPenalty = Math.max(1 - deviation, 0);
+            if (campaign.getCountImpressions() >= campaign.getImpressionsLimit()) {
+                limitPenalty = (float) Math.exp(-10 * Math.abs(campaign.getCountImpressions() - campaign.getImpressionsLimit())
+                        / (float) campaign.getImpressionsLimit());
+            } else {
+                float remainingRatio = (campaign.getImpressionsLimit() - campaign.getCountImpressions()) / (float) campaign.getImpressionsLimit();
+                limitPenalty = (float) Math.pow(remainingRatio, 2);
+            }
+        }
 
-            int remaining = campaign.getImpressionsLimit() - campaign.getCountImpressions();
-            float remainingRatio = (campaign.getImpressionsLimit() != 0)
-                    ? (float) remaining / campaign.getImpressionsLimit()
-                    : 0;
-            float remainingFactor = 0.5f + 1.5f * remainingRatio;
+        float errorFactor = (error > 0.015) ? 0.5f : 1.0f;
+        limitPenalty *= errorFactor;
 
-            limitPenalty = impressionPenalty * remainingFactor;
+        if (campaign.getCountImpressions() >= campaign.getImpressionsLimit() && error > 0.045) {
+            return 0;
         }
 
         return (baseCost + mlPart) * limitPenalty;
