@@ -238,12 +238,35 @@ async def create_campaign(message: Message):
         await message.answer("Сначала создайте или выберите рекламодателя.")
         return
     await message.answer(
-        "Введите данные кампании в формате:\n"
-        "`impressions_limit:1000\nclicks_limit:100\ncost_per_impression:0.05\ncost_per_click:0.5\n"
-        "ad_title:Заголовок рекламы\nad_text:Текст рекламы\nstart_date:1672531200\nend_date:1672617600`"
+        "Введите данные кампании в следующем формате:\n\n"
+        "🔹 `impressions_limit:1000` - лимит показов\n"
+        "🔹 `clicks_limit:100` - лимит кликов\n"
+        "🔹 `cost_per_impression:0.05` - цена за 1 показ (в у.е.)\n"
+        "🔹 `cost_per_click:0.5` - цена за 1 клик (в у.е.)\n"
+        "🔹 `ad_title:Название рекламы` - заголовок объявления\n"
+        "🔹 `ad_text:Описание рекламы` - текст объявления\n"
+        "🔹 `start_date:1672531200` - дата начала (UNIX timestamp)\n"
+        "🔹 `end_date:1672617600` - дата окончания (UNIX timestamp)\n"
+        "🔹 `target_age:18-35` - возрастная аудитория (необязательно)\n"
+        "🔹 `target_location:Москва` - геотаргетинг (необязательно)\n"
+        "🔹 `target_gender:male` - пол (male, female, any) (необязательно)\n\n"
+        "📌 Пример ввода:\n"
+        "```\n"
+        "impressions_limit:1000\n"
+        "clicks_limit:100\n"
+        "cost_per_impression:0.05\n"
+        "cost_per_click:0.5\n"
+        "ad_title:Супер скидки!\n"
+        "ad_text:Только сегодня скидки до 50%!\n"
+        "start_date:1714060800\n"
+        "end_date:1714233600\n"
+        "target_age:18-35\n"
+        "target_location:Москва\n"
+        "target_gender:any\n"
+        "```"
     )
 
-@dp.message(lambda msg: "impressions_limit:" in msg.text and user_roles.get(msg.from_user.id) == "advertiser")
+@dp.message(lambda msg: msg.text.startswith("impressions_limit:") and user_roles.get(msg.from_user.id) == "advertiser")
 async def save_campaign(message: Message):
     user_id = message.from_user.id
     advertiser_id = selected_advertisers.get(user_id)
@@ -257,6 +280,14 @@ async def save_campaign(message: Message):
         if ":" in line:
             key, value = line.split(":", 1)
             data_map[key.strip()] = value.strip()
+
+    # Формируем таргетинг
+    targeting = {
+        "age": data_map.get("target_age", ""),
+        "location": data_map.get("target_location", ""),
+        "gender": data_map.get("target_gender", "")
+    }
+
     campaign_request = {
         "impressions_limit": int(data_map.get("impressions_limit", 0)),
         "clicks_limit": int(data_map.get("clicks_limit", 0)),
@@ -266,11 +297,12 @@ async def save_campaign(message: Message):
         "ad_text": data_map.get("ad_text", ""),
         "start_date": int(data_map.get("start_date", 0)),
         "end_date": int(data_map.get("end_date", 0)),
-        "targeting": {}  # При необходимости можно добавить параметры таргетинга
+        "targeting": targeting
     }
+
     response = await create_campaign_on_backend(advertiser_id, campaign_request)
     if response:
-        await message.answer(f"Кампания создана: {response}")
+        await message.answer(f"Кампания создана:\nID: {response.get('campaign_id')}\nТаргетинг: {targeting}")
     else:
         await message.answer("Ошибка при создании кампании.")
 

@@ -255,11 +255,11 @@ public class AdsService {
         float t = 1;
 
         if (impressionRatio > 1 || clickRatio > 1) {
-            if (error > 0.03) {
+            if (error > 0.045) {
                 return 0;
             }
 
-            t = (float) (error*10);
+            t = (float) error;
         }
 
         float score = (baseCost + mlPart) * limitPenalty * t;
