@@ -237,27 +237,34 @@ public class AdsService {
         float normalizedMlScore = (float) Math.log(mlScore + 1);
         float mlPart = 0.25f * normalizedMlScore;
 
-        float impressionRatio = (campaign.getImpressionsLimit() != 0)
-                ? (float) campaign.getCountImpressions() / campaign.getImpressionsLimit()
-                : 1;
+        float limitPenalty;
+        if (campaign.getCountImpressions() == 0) {
+            limitPenalty = 1;
+        } else {
+            float impressionRatio = (campaign.getImpressionsLimit() != 0)
+                    ? (float) campaign.getCountImpressions() / campaign.getImpressionsLimit()
+                    : 1;
+            float deviation = Math.abs(impressionRatio - 1);
+            float impressionPenalty = Math.max(1 - deviation, 0);
 
-        float deviation = Math.abs(impressionRatio - 1);
-        float impressionPenalty = Math.max(1 - deviation, 0);
+            int remaining = campaign.getImpressionsLimit() - campaign.getCountImpressions();
+            float remainingRatio = (campaign.getImpressionsLimit() != 0)
+                    ? (float) remaining / campaign.getImpressionsLimit()
+                    : 0;
+            float remainingFactor = 0.5f + 0.5f * remainingRatio;
 
-        int remaining = campaign.getImpressionsLimit() - campaign.getCountImpressions();
-        float remainingRatio = (campaign.getImpressionsLimit() != 0) ? (float) remaining / campaign.getImpressionsLimit() : 0;
-        float remainingFactor = 0.5f + 0.5f * remainingRatio;
-
-        float limitPenalty = impressionPenalty * remainingFactor;
+            limitPenalty = impressionPenalty * remainingFactor;
+        }
 
         if (isViewed) {
             limitPenalty = 0.5f + 0.5f * limitPenalty;
-
             if (campaign.getCountImpressions() >= campaign.getImpressionsLimit()) {
                 limitPenalty = 0;
             }
         }
 
+        System.out.println("Campaign: " + campaign.getCampaignId() +
+                " Score: " + ((baseCost + mlPart) * limitPenalty));
         return (baseCost + mlPart) * limitPenalty;
     }
 

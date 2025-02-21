@@ -18,6 +18,7 @@ dp = Dispatcher()
 user_roles = {}
 selected_clients = {}
 selected_advertisers = {}
+pending_ad_text_generation = {}
 
 async def init_db():
     async with aiosqlite.connect(DATABASE) as db:
@@ -409,6 +410,46 @@ async def save_campaign_update(message: Message):
         await message.answer(f"Кампания обновлена: {response}")
     else:
         await message.answer("Ошибка при обновлении кампании.")
+
+
+@dp.message(
+    lambda msg: msg.text == "✍️ Сгенерировать текст рекламы" and user_roles.get(msg.from_user.id) == "advertiser")
+async def prompt_ad_text_generation(message: Message):
+    advertiser_id = selected_advertisers.get(message.from_user.id)
+    if not advertiser_id:
+        await message.answer("Сначала создайте или выберите рекламодателя.")
+        return
+
+    pending_ad_text_generation[message.from_user.id] = True
+    await message.answer("Пожалуйста, введите описание вашей рекламной кампании:")
+
+
+@dp.message(
+    lambda msg: msg.from_user.id in pending_ad_text_generation and user_roles.get(msg.from_user.id) == "advertiser")
+async def process_ad_text_generation(message: Message):
+
+    pending_ad_text_generation.pop(message.from_user.id, None)
+
+    advertiser_id = selected_advertisers.get(message.from_user.id)
+    if not advertiser_id:
+        await message.answer("Сначала создайте или выберите рекламодателя.")
+        return
+
+    user_description = message.text
+
+    generate_request = {
+        "campaign_description": user_description
+    }
+
+    async with aiohttp.ClientSession() as session:
+        url = f"{BACKEND_URL}/gigachat/generateAdText"
+        async with session.get(url, json=generate_request) as resp:
+            if resp.status == 200:
+                generated_text = await resp.text()
+                await message.answer(f"Сгенерированный текст рекламы:\n{generated_text}")
+            else:
+                await message.answer("Ошибка при генерации текста рекламы.")
+
 
 async def send_client_to_microservice(client_data):
     async with aiohttp.ClientSession() as session:
