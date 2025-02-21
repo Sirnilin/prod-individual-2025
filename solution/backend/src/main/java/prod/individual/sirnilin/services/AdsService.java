@@ -239,7 +239,7 @@ public class AdsService {
 
         float limitPenalty;
         if (campaign.getCountImpressions() >= campaign.getImpressionsLimit()) {
-            limitPenalty = isViewed ? 0.25f : 0;
+            limitPenalty = isViewed ? 0.00025f : 0;
 
             if (limitPenalty == 0 && error <= 0.045) {
                 limitPenalty = 0.00000000000000001f;
