@@ -80,5 +80,6 @@ public class CampaignModel {
     private int countClicks;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonProperty("image_url")
     private String imageUrl;
 }
