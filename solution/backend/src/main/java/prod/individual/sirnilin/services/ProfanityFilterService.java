@@ -35,22 +35,23 @@ public class ProfanityFilterService {
 
     private void compilePattern() {
         if (bannedWords.isEmpty()) {
-            bannedPattern = Pattern.compile("$a");
+            bannedPattern = Pattern.compile("$a", Pattern.CASE_INSENSITIVE);
         } else {
             StringBuilder patternBuilder = new StringBuilder();
             for (String word : bannedWords) {
                 if (patternBuilder.length() > 0) {
                     patternBuilder.append("|");
                 }
-                patternBuilder.append(Pattern.quote(word));
+
+                patternBuilder.append("(?i)" + Pattern.quote(word));
             }
-            bannedPattern = Pattern.compile(patternBuilder.toString(), Pattern.CASE_INSENSITIVE);
+            bannedPattern = Pattern.compile(patternBuilder.toString());
         }
     }
 
     public boolean containsProfanity(String text) {
         if (text == null || text.isEmpty()) return false;
-        return bannedPattern.matcher(text).find();
+        return bannedPattern.matcher(text.toLowerCase()).find();
     }
 
     public String sanitizeText(String text) {
