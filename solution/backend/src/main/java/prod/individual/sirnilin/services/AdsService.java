@@ -149,6 +149,7 @@ public class AdsService {
 
         String redisViewedKey = "viewed_ads:" + clientId;
         Set<Object> viewedCampaigns = redisTemplate.opsForSet().members(redisViewedKey);
+        boolean isViewedGroup = false;
 
         List<CampaignModel> newAds = candidateAds.stream()
                 .filter(campaign -> viewedCampaigns == null || !viewedCampaigns.contains(campaign.getCampaignId().toString()))
@@ -163,6 +164,7 @@ public class AdsService {
             adsToConsider = candidateAds.stream()
                     .filter(campaign -> clickedCampaigns == null || !clickedCampaigns.contains(campaign.getCampaignId().toString()))
                     .collect(Collectors.toList());
+            isViewedGroup = true;
         }
 
         if (adsToConsider.isEmpty()) {
@@ -174,7 +176,7 @@ public class AdsService {
 
 
         List<CampaignModel> updatedAds = updateCountImpressionsAndClicks(adsToConsider);
-        CampaignModel bestCampaign = getBestCampaign(updatedAds, client, error);
+        CampaignModel bestCampaign = getBestCampaign(updatedAds, client, error, isViewedGroup);
 
         if (bestCampaign == null) {
             return null;
@@ -228,46 +230,38 @@ public class AdsService {
         metricsExporter.recordClick(campaignId, currentDate);
     }
 
-    private float computeScore(CampaignModel campaign, int mlScore, double error) {
+    private float computeScore(CampaignModel campaign, int mlScore, double error, boolean isViewed) {
         float baseCost = 0.5f * (campaign.getCostPerImpression() + campaign.getCostPerClick());
         baseCost = (float) Math.log(baseCost + 1);
+
         float normalizedMlScore = (float) Math.log(mlScore + 1);
         float mlPart = 0.25f * normalizedMlScore;
-        float impressionRatio = campaign.getImpressionsLimit() != 0
+
+        float impressionRatio = (campaign.getImpressionsLimit() != 0)
                 ? (float) campaign.getCountImpressions() / campaign.getImpressionsLimit()
                 : 1;
-        float clickRatio = campaign.getClicksLimit() != 0
-                ? (float) campaign.getCountClicks() / campaign.getClicksLimit()
-                : 1;
-        float impressionPenalty = impressionRatio > 1 ? 1 / impressionRatio : 1;
-        float clickPenalty = clickRatio > 1 ? 1 / clickRatio : 1;
 
+        float deviation = Math.abs(impressionRatio - 1);
+        float impressionPenalty = Math.max(1 - deviation, 0);
 
-        if (impressionRatio < 1) {
-            impressionPenalty = 2 + (1 + impressionRatio);
-        }
-        if (clickRatio < 1) {
-            clickPenalty = 2 + (1 + clickRatio);
-        }
+        int remaining = campaign.getImpressionsLimit() - campaign.getCountImpressions();
+        float remainingRatio = (campaign.getImpressionsLimit() != 0) ? (float) remaining / campaign.getImpressionsLimit() : 0;
+        float remainingFactor = 0.5f + 0.5f * remainingRatio;
 
-        float limitPenalty = (impressionPenalty + clickPenalty) / 2;
+        float limitPenalty = impressionPenalty * remainingFactor;
 
-        float t = 1;
+        if (isViewed) {
+            limitPenalty = 0.5f + 0.5f * limitPenalty;
 
-        if (impressionRatio > 1 || clickRatio > 1) {
-            if (error > 0.045) {
-                return 0;
+            if (campaign.getCountImpressions() >= campaign.getImpressionsLimit()) {
+                limitPenalty = 0;
             }
-
-            t = (float) error;
         }
 
-        float score = (baseCost + mlPart) * limitPenalty * t;
-
-        return score;
+        return (baseCost + mlPart) * limitPenalty;
     }
 
-    private CampaignModel getBestCampaign(List<CampaignModel> matchingAds, ClientModel client, double error) {
+    private CampaignModel getBestCampaign(List<CampaignModel> matchingAds, ClientModel client, double error, boolean isViewed) {
         Set<UUID> advertiserIds = matchingAds.stream()
                 .map(CampaignModel::getAdvertiserId)
                 .collect(Collectors.toSet());
@@ -281,7 +275,7 @@ public class AdsService {
                     matchingAds.parallelStream()
                             .map(campaign -> {
                                 int mlScore = mlScoreMap.getOrDefault(campaign.getAdvertiserId(), 0);
-                                float score = computeScore(campaign, mlScore, error);
+                                float score = computeScore(campaign, mlScore, error, isViewed);
                                 return new AbstractMap.SimpleEntry<>(campaign, score);
                             })
                             .max(Comparator.comparing(AbstractMap.SimpleEntry::getValue))
