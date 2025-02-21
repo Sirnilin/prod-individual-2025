@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 import uuid
@@ -445,8 +446,19 @@ async def process_ad_text_generation(message: Message):
         url = f"{BACKEND_URL}/gigachat/generateAdText"
         async with session.get(url, json=generate_request) as resp:
             if resp.status == 200:
-                generated_text = await resp.text()
-                await message.answer(f"Сгенерированный текст рекламы:\n{generated_text}")
+                content_type = resp.headers.get('Content-Type', '')
+                if 'application/json' in content_type:
+                    response_json = await resp.json()
+                    generated_text = response_json.get("ad_text", "Текст не найден")
+                    await message.answer(f"Сгенерированный текст рекламы:\n{generated_text}")
+                else:
+                    text_response = await resp.text()
+                    try:
+                        response_json = json.loads(text_response)
+                        generated_text = response_json.get("ad_text", "Текст не найден")
+                        await message.answer(f"Сгенерированный текст рекламы:\n{generated_text}")
+                    except json.JSONDecodeError:
+                        await message.answer(f"Получен неожиданный ответ:\n{text_response}")
             else:
                 await message.answer("Ошибка при генерации текста рекламы.")
 
