@@ -1,0 +1,693 @@
+openapi: 3.1.0
+info:
+  title: OpenAPI definition
+  version: v0
+servers:
+  - url: http://localhost:8080
+    description: Generated server url
+paths:
+  /advertisers/{advertiserId}/campaigns/{campaignId}:
+    get:
+      tags:
+        - advertiser-controller
+      operationId: getCampaign
+      parameters:
+        - name: advertiserId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: campaignId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+    put:
+      tags:
+        - advertiser-controller
+      operationId: updateCampaign
+      parameters:
+        - name: advertiserId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: campaignId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+    delete:
+      tags:
+        - advertiser-controller
+      operationId: deleteCampaign
+      parameters:
+        - name: advertiserId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: campaignId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /advertisers/{advertiserId}/campaigns/{campaignId}/V2:
+    put:
+      tags:
+        - advertiser-controller
+      operationId: updateCampaignV2
+      parameters:
+        - name: advertiserId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: campaignId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /time/advance:
+    post:
+      tags:
+        - time-controller
+      operationId: updateCurrentDate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TimeRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /ml-scores:
+    post:
+      tags:
+        - ml-score-controller
+      operationId: saveMlScore
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MlScoreRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /clients/bulk:
+    post:
+      tags:
+        - client-controller
+      operationId: bulkInsert
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/ClientModel"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /banned-words/add:
+    post:
+      tags:
+        - banned-word-controller
+      operationId: addBannedWord
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BannedWordRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /advertisers/{advertiserId}/campaigns:
+    get:
+      tags:
+        - advertiser-controller
+      operationId: getAllCampaignsByAdvertiser
+      parameters:
+        - name: advertiserId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "10"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "0"
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+    post:
+      tags:
+        - advertiser-controller
+      operationId: createCampaign
+      parameters:
+        - name: advertiserId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignCreateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /advertisers/{advertiserId}/campaigns/{campaignId}/uploadImage:
+    post:
+      tags:
+        - advertiser-controller
+      operationId: uploadImage
+      parameters:
+        - name: advertiserId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: campaignId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+                - file
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /advertisers/{advertiserId}/campaigns/V2:
+    post:
+      tags:
+        - advertiser-controller
+      operationId: createCampaignV2
+      parameters:
+        - name: advertiserId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignCreateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /advertisers/bulk:
+    post:
+      tags:
+        - advertiser-controller
+      operationId: bulkInsert_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/AdvertiserModel"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /ads/{adId}/click:
+    post:
+      tags:
+        - ads-controller
+      operationId: adsClick
+      parameters:
+        - name: adId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdsClickRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /stats/campaigns/{campaignsId}/daily:
+    get:
+      tags:
+        - statistic-controller
+      operationId: getCampaignStatisticDaily
+      parameters:
+        - name: campaignsId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /stats/campaigns/{campaignId}:
+    get:
+      tags:
+        - statistic-controller
+      operationId: getCampaignsStatistic
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /stats/advertisers/{advertiserId}/campaigns:
+    get:
+      tags:
+        - statistic-controller
+      operationId: getAdvertisersStatistic
+      parameters:
+        - name: advertiserId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /stats/advertisers/{advertiserId}/campaigns/daily:
+    get:
+      tags:
+        - statistic-controller
+      operationId: getAdvertisersDailyStatistic
+      parameters:
+        - name: advertiserId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /ping:
+    get:
+      tags:
+        - ping-controller
+      operationId: ping
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /gigachat/generateAdText:
+    get:
+      tags:
+        - giga-chat-controller
+      operationId: generateAdText
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateAdTextRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /clients/{clientId}:
+    get:
+      tags:
+        - client-controller
+      operationId: getClientById
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /advertisers/{advertiserId}:
+    get:
+      tags:
+        - advertiser-controller
+      operationId: getAdvertiserById
+      parameters:
+        - name: advertiserId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /ads:
+    get:
+      tags:
+        - ads-controller
+      operationId: getAds
+      parameters:
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /banned-words/remove:
+    delete:
+      tags:
+        - banned-word-controller
+      operationId: removeBannedWord
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BannedWordRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /advertisers/{advertiserId}/campaigns/{campaignId}/removeImage:
+    delete:
+      tags:
+        - advertiser-controller
+      operationId: removeImage
+      parameters:
+        - name: advertiserId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: campaignId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+components:
+  schemas:
+    CampaignUpdateRequest:
+      type: object
+      properties:
+        targeting:
+          $ref: "#/components/schemas/TargetModel"
+        cost_per_impression:
+          type: number
+          format: float
+        cost_per_click:
+          type: number
+          format: float
+        ad_title:
+          type: string
+        ad_text:
+          type: string
+        start_date:
+          type: integer
+          format: int32
+        end_date:
+          type: integer
+          format: int32
+      required:
+        - ad_text
+        - ad_title
+        - cost_per_click
+        - cost_per_impression
+        - end_date
+        - start_date
+    TargetModel:
+      type: object
+      properties:
+        gender:
+          type: string
+          enum:
+            - MALE
+            - FEMALE
+            - ALL
+        location:
+          type: string
+        age_from:
+          type: integer
+          format: int32
+          minimum: 0
+        age_to:
+          type: integer
+          format: int32
+          minimum: 0
+    TimeRequest:
+      type: object
+      properties:
+        current_date:
+          type: integer
+          format: int32
+    MlScoreRequest:
+      type: object
+      properties:
+        score:
+          type: integer
+          format: int32
+        advertiser_id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+          format: uuid
+    ClientModel:
+      type: object
+      properties:
+        login:
+          type: string
+        age:
+          type: integer
+          format: int32
+          minimum: 0
+        location:
+          type: string
+        gender:
+          type: string
+          enum:
+            - MALE
+            - FEMALE
+            - ALL
+        client_id:
+          type: string
+          format: uuid
+      required:
+        - age
+        - gender
+        - location
+        - login
+    BannedWordRequest:
+      type: object
+      properties:
+        words:
+          type: array
+          items:
+            type: string
+    CampaignCreateRequest:
+      type: object
+      properties:
+        targeting:
+          $ref: "#/components/schemas/TargetModel"
+        impressions_limit:
+          type: integer
+          format: int32
+        clicks_limit:
+          type: integer
+          format: int32
+        cost_per_impression:
+          type: number
+          format: float
+        cost_per_click:
+          type: number
+          format: float
+        ad_title:
+          type: string
+        ad_text:
+          type: string
+        start_date:
+          type: integer
+          format: int32
+        end_date:
+          type: integer
+          format: int32
+      required:
+        - ad_text
+        - ad_title
+        - clicks_limit
+        - cost_per_click
+        - cost_per_impression
+        - end_date
+        - impressions_limit
+        - start_date
+    AdvertiserModel:
+      type: object
+      properties:
+        name:
+          type: string
+        advertiser_id:
+          type: string
+          format: uuid
+      required:
+        - advertiser_id
+        - name
+    AdsClickRequest:
+      type: object
+      properties:
+        client_id:
+          type: string
+          format: uuid
+    GenerateAdTextRequest:
+      type: object
+      properties:
+        campaign_description:
+          type: string
