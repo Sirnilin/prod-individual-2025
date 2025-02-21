@@ -243,10 +243,10 @@ public class AdsService {
 
 
         if (impressionRatio < 1) {
-            impressionPenalty = 1 + (1 - impressionRatio);
+            impressionPenalty = 1 - (1 - impressionRatio) * 0.5f;
         }
         if (clickRatio < 1) {
-            clickPenalty = 1 + (1 - clickRatio);
+            clickPenalty = 1 - (1 - clickRatio) * 0.5f;
         }
 
         float limitPenalty = (impressionPenalty + clickPenalty) / 2;
