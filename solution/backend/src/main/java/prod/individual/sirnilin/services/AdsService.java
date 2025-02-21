@@ -240,24 +240,30 @@ public class AdsService {
                 : 1;
         float impressionPenalty = impressionRatio > 1 ? 1 / impressionRatio : 1;
         float clickPenalty = clickRatio > 1 ? 1 / clickRatio : 1;
+
+
+        if (impressionRatio < 1) {
+            impressionPenalty = 1 + (1 - impressionRatio);
+        }
+        if (clickRatio < 1) {
+            clickPenalty = 1 + (1 - clickRatio);
+        }
+
         float limitPenalty = (impressionPenalty + clickPenalty) / 2;
 
-        float score = (baseCost + mlPart) * limitPenalty;
-        float impress = 1;
-        float click = 1;
-        if (campaign.getCountImpressions() >= campaign.getImpressionsLimit()) {
-            impress = (float) (1 - error*10);
+        float t = 1;
+
+        if (impressionRatio > 1 || clickRatio > 1) {
+            if (error > 0.03) {
+                return 0;
+            }
+
+            t = (float) (1 - error*10);
         }
 
-        if (campaign.getCountImpressions() >= campaign.getImpressionsLimit()) {
-            click = (float) (1 - error*10);
-        }
+        float score = (baseCost + mlPart) * limitPenalty * t;
 
-        if ((impress != 1 || click != 1) && error >= 0.05) {
-            return 0;
-        }
-
-        return score * impress * click;
+        return score;
     }
 
     private CampaignModel getBestCampaign(List<CampaignModel> matchingAds, ClientModel client, double error) {
@@ -290,75 +296,5 @@ public class AdsService {
     private int getMlScore (UUID advertiserId, UUID clientId) {
         return mlScoreRepository.findByAdvertiserIdAndClientId(advertiserId, clientId)
                 .orElseGet(() -> new MlScoreModel(advertiserId, clientId, 0)).getScore();
-    }
-
-    private float computeGlobalClickPenaltyFactor() {
-        List<HistoryImpressionsModel> historyImpressionsModels = historyImpressionsRepository.findAll();
-        List<UUID> campaignIds = historyImpressionsModels.stream()
-                .map(HistoryImpressionsModel::getCampaignId)
-                .distinct()
-                .collect(Collectors.toList());
-
-        List<CampaignModel> campaigns = campaignRepository.findByCampaignIdIn(campaignIds);
-        Map<UUID, CampaignModel> campaignMap = campaigns.stream()
-                .collect(Collectors.toMap(CampaignModel::getCampaignId, Function.identity()));
-
-        float allCount = historyImpressionsModels.size();
-        float errorCount = 0;
-
-        for (HistoryImpressionsModel historyImpressionsModel : historyImpressionsModels) {
-            CampaignModel campaign = campaignMap.get(historyImpressionsModel.getCampaignId());
-            if (campaign == null) {
-                continue;
-            }
-            if (campaign.getClicksLimit() < campaign.getCountClicks()) {
-                errorCount++;
-            }
-        }
-        if (errorCount == 0) {
-            return 1.0f;
-        }
-        float overshootFraction = errorCount / allCount;
-        if (overshootFraction <= 0.05f) {
-            float penaltyPercent = overshootFraction * 100 * 0.1f;
-            float factor = 1.0f - penaltyPercent;
-            return Math.max(factor, 0);
-        }
-        return 0;
-    }
-
-    private float computeGlobalImpressionPenaltyFactor() {
-        List<HistoryImpressionsModel> historyImpressionsModels = historyImpressionsRepository.findAll();
-        List<UUID> campaignIds = historyImpressionsModels.stream()
-                .map(HistoryImpressionsModel::getCampaignId)
-                .distinct()
-                .collect(Collectors.toList());
-
-        List<CampaignModel> campaigns = campaignRepository.findByCampaignIdIn(campaignIds);
-        Map<UUID, CampaignModel> campaignMap = campaigns.stream()
-                .collect(Collectors.toMap(CampaignModel::getCampaignId, Function.identity()));
-
-        float allCount = historyImpressionsModels.size();
-        float errorCount = 0;
-
-        for (HistoryImpressionsModel historyImpressionsModel : historyImpressionsModels) {
-            CampaignModel campaign = campaignMap.get(historyImpressionsModel.getCampaignId());
-            if (campaign == null) {
-                continue;
-            }
-            if (campaign.getImpressionsLimit() < campaign.getCountImpressions()) {
-                errorCount++;
-            }
-        }
-        if (errorCount == 0) {
-            return 1.0f;
-        }
-        float overshootFraction = errorCount / allCount;
-        if (overshootFraction <= 0.05f) {
-            float penaltyPercent = overshootFraction * 100 * 0.1f;
-            float factor = 1.0f - penaltyPercent;
-            return Math.max(factor, 0);
-        }
-        return 0;
     }
 }

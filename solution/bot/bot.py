@@ -219,7 +219,7 @@ async def save_advertiser(message: Message):
             data_map[key.strip()] = value.strip()
     new_id = str(uuid.uuid4())
     advertiser_data = {
-        "advertiserId": new_id,
+        "advertiser_id": new_id,
         "name": data_map.get("Имя", "Unknown")
     }
     response = await send_advertiser_to_backend(advertiser_data)
