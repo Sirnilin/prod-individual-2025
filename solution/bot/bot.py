@@ -1,6 +1,7 @@
 import asyncio
-import io
+from io import BytesIO
 import matplotlib.pyplot as plt
+from aiogram.types import InputFile
 import json
 import logging
 import os
@@ -22,24 +23,6 @@ user_roles = {}
 selected_clients = {}
 selected_advertisers = {}
 pending_ad_text_generation = {}
-
-
-def create_chart(data):
-    # data: словарь с ключами 'dates', 'impressions' и 'clicks'
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(data['dates'], data['impressions'], label='Показы', marker='o')
-    ax.plot(data['dates'], data['clicks'], label='Клики', marker='o')
-    ax.set_xlabel('Дата')
-    ax.set_ylabel('Количество')
-    ax.set_title('Дневная статистика')
-    ax.legend()
-
-    # Сохраняем график в буфер
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png')
-    buf.seek(0)
-    plt.close(fig)
-    return buf
 
 async def init_db():
     async with aiosqlite.connect(DATABASE) as db:
@@ -207,17 +190,40 @@ async def get_ads(message: Message):
         async with session.get(url) as resp:
             if resp.status == 200:
                 ad_data = await resp.json()
+                # Формируем текст объявления
                 text_response = (
                     f"Название: {ad_data.get('ad_title')}\n"
                     f"Текст: {ad_data.get('ad_text')}\n"
                     f"ID кампании: {ad_data.get('ad_id')}\n"
                     f"ID рекламодателя: {ad_data.get('advertiser_id')}"
                 )
-                await message.answer(text_response)
+
+                keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="Кликнуть", callback_data=f"click_ad:{ad_data.get('ad_id')}")]
+                ])
+                await message.answer(text_response, reply_markup=keyboard)
             elif resp.status == 404:
                 await message.answer("Нет доступной рекламы для данного клиента.")
             else:
                 await message.answer(f"Ошибка при получении рекламы. Код: {resp.status}")
+
+@dp.callback_query(lambda c: c.data.startswith("click_ad:"))
+async def process_ad_click(callback: types.CallbackQuery):
+    ad_id = callback.data.split(":")[1]
+    user_id = callback.from_user.id
+    client_id = selected_clients.get(user_id)
+    if not client_id:
+        await callback.message.answer("Клиент не выбран.")
+        return
+    click_url = f"{BACKEND_URL}/ads/{ad_id}/click"
+    payload = {"client_id": client_id}
+    async with aiohttp.ClientSession() as session:
+        async with session.post(click_url, json=payload) as resp:
+            if resp.status == 204:
+                await callback.message.answer("Клик зафиксирован.")
+            else:
+                error_text = await resp.text()
+                await callback.message.answer(f"Ошибка при клике: {error_text}")
 
 # -----------------------------
 # Обработчики для рекламодателя
@@ -483,32 +489,31 @@ async def process_ad_text_generation(message: Message):
             else:
                 await message.answer("Ошибка при генерации текста рекламы.")
 
-@dp.message(lambda msg: msg.text == "📊 График статистики" and user_roles.get(msg.from_user.id) == "advertiser")
-async def send_stats_chart(message: types.Message):
+
+@dp.message(lambda msg: msg.text == "📊 График статистики")
+async def get_statistics(message: Message):
     advertiser_id = selected_advertisers.get(message.from_user.id)
     if not advertiser_id:
         await message.answer("Сначала создайте или выберите рекламодателя.")
         return
 
     async with aiohttp.ClientSession() as session:
-        url = f"{BACKEND_URL}/stats/advertisers/{advertiser_id}/campaigns/daily"
+        url = f"{BACKEND_URL}/stats/advertisers/{advertiser_id}/campaigns"
         async with session.get(url) as resp:
             if resp.status == 200:
                 stats = await resp.json()
-                # Предполагаем, что stats — это список объектов, содержащих поля 'date', 'impressions_count' и 'clicks_count'
-                dates = [item['date'] for item in stats]
-                impressions = [item.get('impressions_count', 0) for item in stats]
-                clicks = [item.get('clicks_count', 0) for item in stats]
-
-                data = {
-                    'dates': dates,
-                    'impressions': impressions,
-                    'clicks': clicks
-                }
-                chart_buf = create_chart(data)
-                await message.answer_photo(chart_buf)
+                response_text = (
+                    f"📊 Статистика кампаний:\n"
+                    f"Показов: {stats.get('impressions_count', 0)}\n"
+                    f"Кликов: {stats.get('clicks_count', 0)}\n"
+                    f"Конверсия: {stats.get('conversion', 0)}\n"
+                    f"Потрачено на показы: {stats.get('spent_impressions', 0)}\n"
+                    f"Потрачено на клики: {stats.get('spent_clicks', 0)}\n"
+                    f"Общий расход: {stats.get('spent_total', 0)}\n"
+                )
+                await message.answer(response_text)
             else:
-                await message.answer("Ошибка при получении статистики.")
+                await message.answer("Ошибка при получении статистики. Попробуйте позже.")
 
 
 async def send_client_to_microservice(client_data):
