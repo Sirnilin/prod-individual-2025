@@ -23,7 +23,7 @@ public class ClientController {
     public ResponseEntity<?> bulkInsert(@Valid @RequestBody List<ClientModel> clientModels) {
         try {
             clientService.bulkInsert(clientModels);
-            return ResponseEntity.status(HttpStatus.OK).body(clientModels);
+            return ResponseEntity.status(HttpStatus.CREATED).body(clientModels);
         } catch (Exception e) {
             HashMap<String, String> errorResponse = new HashMap<>();
             errorResponse.put("message", "Bulk insert/update failed: " + e.getMessage());
