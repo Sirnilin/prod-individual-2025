@@ -306,7 +306,7 @@ async def save_campaign_update(message: Message):
         "ad_text": data_map.get("ad_text", ""),
         "start_date": int(data_map.get("start_date", 0)),
         "end_date": int(data_map.get("end_date", 0)),
-        "targeting": {}  # При необходимости можно добавить
+        "targeting": {}
     }
     response = await update_campaign_on_backend(advertiser_id, campaign_id, campaign_update)
     if response:

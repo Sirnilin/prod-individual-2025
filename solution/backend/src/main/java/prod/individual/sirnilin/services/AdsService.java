@@ -230,6 +230,7 @@ public class AdsService {
 
     private float computeScore(CampaignModel campaign, int mlScore, double error) {
         float baseCost = 0.5f * (campaign.getCostPerImpression() + campaign.getCostPerClick());
+        baseCost = (float) Math.log(baseCost + 1);
         float normalizedMlScore = (float) Math.log(mlScore + 1);
         float mlPart = 0.25f * normalizedMlScore;
         float impressionRatio = campaign.getImpressionsLimit() != 0
@@ -243,10 +244,10 @@ public class AdsService {
 
 
         if (impressionRatio < 1) {
-            impressionPenalty = 1 - (1 - impressionRatio) * 0.5f;
+            impressionPenalty = 2 + (1 + impressionRatio);
         }
         if (clickRatio < 1) {
-            clickPenalty = 1 - (1 - clickRatio) * 0.5f;
+            clickPenalty = 2 + (1 + clickRatio);
         }
 
         float limitPenalty = (impressionPenalty + clickPenalty) / 2;
