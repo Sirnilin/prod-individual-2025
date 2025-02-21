@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
+  "id": 1,
   "links": [],
   "panels": [
     {
@@ -29,7 +29,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "continuous-YlRd"
+            "mode": "palette-classic"
           },
           "custom": {
             "axisBorderShow": false,
@@ -62,8 +62,7 @@
                 "value": null
               }
             ]
-          },
-          "unit": "currencyUSD"
+          }
         },
         "overrides": []
       },
@@ -107,7 +106,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\r\n  impressions.date AS \"day\", \r\n  SUM(impressions.cost) + COALESCE(SUM(clicks.cost), 0) AS \"total_revenue\"\r\nFROM\r\n  history_impressions impressions\r\nLEFT JOIN\r\n  history_clicks clicks\r\nON\r\n  impressions.date = clicks.date\r\nGROUP BY\r\n  impressions.date\r\nORDER BY\r\n  impressions.date ASC",
+          "rawSql": "SELECT\r\n    impressions.date AS \"day\",\r\n    SUM(impressions.total_cost) AS \"total_revenue\",\r\n    SUM(clicks.total_cost) AS \"total_click_revenue\"\r\nFROM\r\n    (SELECT date, SUM(cost) AS total_cost\r\n     FROM history_impressions\r\n     GROUP BY date) impressions\r\n        LEFT JOIN\r\n    (SELECT date, SUM(cost) AS total_cost\r\n     FROM history_clicks\r\n     GROUP BY date) clicks\r\n    ON impressions.date = clicks.date\r\nGROUP BY\r\n    impressions.date\r\nORDER BY\r\n    impressions.date ASC;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
