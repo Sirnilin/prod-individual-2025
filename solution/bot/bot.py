@@ -15,12 +15,14 @@ DATABASE = "clients.db"
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# Хранение ролей пользователей (client/advertiser) и выбранных клиентов
-user_roles = {}  # {user_id: "client" или "advertiser"}
-selected_clients = {}
+# Хранение ролей пользователей и выбранных клиентов/рекламодателей
+user_roles = {}      # {user_id: "client" или "advertiser"}
+selected_clients = {}  # для клиентов
+selected_advertisers = {}  # для рекламодателей (если нужно)
 
 async def init_db():
     async with aiosqlite.connect(DATABASE) as db:
+        # Таблица клиентов (пример)
         await db.execute(
             """
             CREATE TABLE IF NOT EXISTS clients (
@@ -172,26 +174,145 @@ async def get_ads(message: Message):
 # -----------------------------
 # Обработчики для рекламодателя
 # -----------------------------
+async def send_advertiser_to_backend(advertiser_data: dict):
+    """Отправка данных рекламодателя на эндпоинт bulk insert."""
+    async with aiohttp.ClientSession() as session:
+        url = f"{BACKEND_URL}/advertisers/bulk"
+        async with session.post(url, json=[advertiser_data]) as resp:
+            if resp.status == 201:
+                return await resp.json()
+            else:
+                return None
+
+async def create_campaign_on_backend(advertiser_id: str, campaign_request: dict):
+    """Создание кампании для заданного рекламодателя."""
+    async with aiohttp.ClientSession() as session:
+        url = f"{BACKEND_URL}/advertisers/{advertiser_id}/campaigns"
+        async with session.post(url, json=campaign_request) as resp:
+            if resp.status == 201:
+                return await resp.json()
+            else:
+                return None
+
+async def update_campaign_on_backend(advertiser_id: str, campaign_id: str, campaign_update: dict):
+    """Обновление кампании для заданного рекламодателя."""
+    async with aiohttp.ClientSession() as session:
+        url = f"{BACKEND_URL}/advertisers/{advertiser_id}/campaigns/{campaign_id}"
+        async with session.put(url, json=campaign_update) as resp:
+            if resp.status == 200:
+                return await resp.json()
+            else:
+                return None
+
 @dp.message(lambda msg: msg.text == "Создать рекламодателя" and user_roles.get(msg.from_user.id) == "advertiser")
 async def create_advertiser(message: Message):
-    await message.answer("Введите данные рекламодателя в формате:\n`Имя:TestAdvertiser\nКатегория:Tech`")
-    # Здесь можно реализовать сохранение данных рекламодателя (например, в отдельной таблице)
+    await message.answer("Введите данные рекламодателя в формате:\n`Имя:TestAdvertiser`")
+
+@dp.message(lambda msg: "Имя:" in msg.text and user_roles.get(msg.from_user.id) == "advertiser")
+async def save_advertiser(message: Message):
+    # Простой парсинг входных данных
+    data = message.text.split("\n")
+    data_map = {}
+    for line in data:
+        if ":" in line:
+            key, value = line.split(":", 1)
+            data_map[key.strip()] = value.strip()
+    new_id = str(uuid.uuid4())
+    advertiser_data = {
+        "advertiserId": new_id,
+        "name": data_map.get("Имя", "Unknown")
+    }
+    response = await send_advertiser_to_backend(advertiser_data)
+    if response:
+        # Сохраняем выбранного рекламодателя, если необходимо
+        selected_advertisers[message.from_user.id] = new_id
+        await message.answer(f"Рекламодатель создан с ID: {new_id} и отправлен в микросервис.")
+    else:
+        await message.answer("Ошибка при создании рекламодателя.")
 
 @dp.message(lambda msg: msg.text == "Создать рекламу" and user_roles.get(msg.from_user.id) == "advertiser")
-async def create_ad(message: Message):
-    await message.answer("Введите данные рекламы в формате:\n`Название:Awesome Ad\nОписание:This is an ad description`")
-    # Реализуйте логику создания рекламы
+async def create_campaign(message: Message):
+    user_id = message.from_user.id
+    advertiser_id = selected_advertisers.get(user_id)
+    if not advertiser_id:
+        await message.answer("Сначала создайте или выберите рекламодателя.")
+        return
+    await message.answer(
+        "Введите данные кампании в формате:\n"
+        "`impressions_limit:1000\nclicks_limit:100\ncost_per_impression:0.05\ncost_per_click:0.5\n"
+        "ad_title:Заголовок рекламы\nad_text:Текст рекламы\nstart_date:1672531200\nend_date:1672617600`"
+    )
 
-@dp.message(lambda msg: msg.text == "Сгенерировать текст рекламы" and user_roles.get(msg.from_user.id) == "advertiser")
-async def generate_ad_text(message: Message):
-    # Пример генерации текста (можно интегрировать с внешним сервисом)
-    generated_text = "Супер рекламное сообщение!"
-    await message.answer(f"Сгенерированный текст рекламы: {generated_text}")
+@dp.message(lambda msg: "impressions_limit:" in msg.text and user_roles.get(msg.from_user.id) == "advertiser")
+async def save_campaign(message: Message):
+    user_id = message.from_user.id
+    advertiser_id = selected_advertisers.get(user_id)
+    if not advertiser_id:
+        await message.answer("Сначала создайте рекламодателя.")
+        return
+
+    lines = message.text.split("\n")
+    data_map = {}
+    for line in lines:
+        if ":" in line:
+            key, value = line.split(":", 1)
+            data_map[key.strip()] = value.strip()
+    campaign_request = {
+        "impressions_limit": int(data_map.get("impressions_limit", 0)),
+        "clicks_limit": int(data_map.get("clicks_limit", 0)),
+        "cost_per_impression": float(data_map.get("cost_per_impression", 0)),
+        "cost_per_click": float(data_map.get("cost_per_click", 0)),
+        "ad_title": data_map.get("ad_title", "Без названия"),
+        "ad_text": data_map.get("ad_text", ""),
+        "start_date": int(data_map.get("start_date", 0)),
+        "end_date": int(data_map.get("end_date", 0)),
+        "targeting": {}  # При необходимости можно добавить параметры таргетинга
+    }
+    response = await create_campaign_on_backend(advertiser_id, campaign_request)
+    if response:
+        await message.answer(f"Кампания создана: {response}")
+    else:
+        await message.answer("Ошибка при создании кампании.")
 
 @dp.message(lambda msg: msg.text == "Изменить рекламу" and user_roles.get(msg.from_user.id) == "advertiser")
-async def modify_ad(message: Message):
-    await message.answer("Введите ID рекламы и новые данные в формате:\n`ID:12345\nНазвание:New Title\nОписание:New description`")
-    # Реализуйте логику изменения данных рекламы
+async def modify_campaign(message: Message):
+    await message.answer(
+        "Введите данные для изменения кампании в формате:\n"
+        "`campaign_id:ID_Кампании\ncost_per_impression:0.04\ncost_per_click:0.4\n"
+        "ad_title:Новый заголовок\nad_text:Новый текст\nstart_date:1672531200\nend_date:1672617600`"
+    )
+
+@dp.message(lambda msg: "campaign_id:" in msg.text and user_roles.get(msg.from_user.id) == "advertiser")
+async def save_campaign_update(message: Message):
+    user_id = message.from_user.id
+    advertiser_id = selected_advertisers.get(user_id)
+    if not advertiser_id:
+        await message.answer("Сначала создайте рекламодателя.")
+        return
+    lines = message.text.split("\n")
+    data_map = {}
+    for line in lines:
+        if ":" in line:
+            key, value = line.split(":", 1)
+            data_map[key.strip()] = value.strip()
+    campaign_id = data_map.get("campaign_id")
+    if not campaign_id:
+        await message.answer("Не указан campaign_id.")
+        return
+    campaign_update = {
+        "cost_per_impression": float(data_map.get("cost_per_impression", 0)),
+        "cost_per_click": float(data_map.get("cost_per_click", 0)),
+        "ad_title": data_map.get("ad_title", ""),
+        "ad_text": data_map.get("ad_text", ""),
+        "start_date": int(data_map.get("start_date", 0)),
+        "end_date": int(data_map.get("end_date", 0)),
+        "targeting": {}  # При необходимости можно добавить
+    }
+    response = await update_campaign_on_backend(advertiser_id, campaign_id, campaign_update)
+    if response:
+        await message.answer(f"Кампания обновлена: {response}")
+    else:
+        await message.answer("Ошибка при обновлении кампании.")
 
 async def send_client_to_microservice(client_data):
     async with aiohttp.ClientSession() as session:

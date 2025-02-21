@@ -169,7 +169,8 @@ public class AdsService {
             return null;
         }
 
-        double error = (double) redisTemplate.opsForValue().get("error_rate");
+        Double errorRate = (Double) redisTemplate.opsForValue().get("error_rate");
+        double error = (errorRate != null) ? errorRate : 0.0;
 
 
         List<CampaignModel> updatedAds = updateCountImpressionsAndClicks(adsToConsider);
