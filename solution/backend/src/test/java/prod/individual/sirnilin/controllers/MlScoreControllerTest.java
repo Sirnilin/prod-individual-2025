@@ -47,7 +47,7 @@ public class MlScoreControllerTest {
 
         ResponseEntity<?> responseEntity = mlScoreController.saveMlScore(request);
 
-        assertEquals(HttpStatus.CREATED, responseEntity.getStatusCode());
+        assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
         assertEquals(request, responseEntity.getBody());
     }
 

@@ -232,9 +232,9 @@ public class AdsService {
 
     private float computeScore(CampaignModel campaign, int mlScore, double error, boolean isViewed) {
         float baseCost = 0.5f * (campaign.getCostPerImpression() + campaign.getCostPerClick());
-        baseCost = (float) Math.log(baseCost + 1);
+        baseCost = (float) Math.log1p(baseCost + 1);
 
-        float normalizedMlScore = (float) Math.log(mlScore + 1);
+        float normalizedMlScore = (float) Math.log1p(mlScore + 1);
         float mlPart = 0.25f * normalizedMlScore;
 
         float limitPenalty;
@@ -242,7 +242,7 @@ public class AdsService {
             limitPenalty = isViewed ? 0.25f : 0;
 
             if (limitPenalty == 0 && error <= 0.045) {
-                limitPenalty = 0.000001f;
+                limitPenalty = 0.00000000000000001f;
             }
         } else if (campaign.getCountImpressions() == 0) {
             limitPenalty = 1;
