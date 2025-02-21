@@ -242,7 +242,7 @@ public class AdsService {
             limitPenalty = isViewed ? 0.00025f : 0;
 
             if (limitPenalty == 0 && error <= 0.045) {
-                limitPenalty = 0.00000000000000001f;
+                limitPenalty = 0.00000001f;
             }
         } else if (campaign.getCountImpressions() == 0) {
             limitPenalty = 1;
@@ -257,7 +257,7 @@ public class AdsService {
             float remainingRatio = (campaign.getImpressionsLimit() != 0)
                     ? (float) remaining / campaign.getImpressionsLimit()
                     : 0;
-            float remainingFactor = 0.5f + 0.5f * remainingRatio;
+            float remainingFactor = 3.5f + 0.5f * remainingRatio;
 
             limitPenalty = impressionPenalty * remainingFactor;
         }
