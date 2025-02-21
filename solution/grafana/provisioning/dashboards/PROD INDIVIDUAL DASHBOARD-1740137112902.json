@@ -18,9 +18,119 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 2,
   "links": [],
   "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres_datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-YlRd"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 12,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "day",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "11.5.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres_datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\r\n  impressions.date AS \"day\", \r\n  SUM(impressions.cost) + COALESCE(SUM(clicks.cost), 0) AS \"total_revenue\"\r\nFROM\r\n  history_impressions impressions\r\nLEFT JOIN\r\n  history_clicks clicks\r\nON\r\n  impressions.date = clicks.date\r\nGROUP BY\r\n  impressions.date\r\nORDER BY\r\n  impressions.date ASC",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Revenue by day",
+      "type": "barchart"
+    },
     {
       "datasource": {
         "type": "prometheus",
@@ -52,7 +162,7 @@
         "h": 4,
         "w": 3,
         "x": 0,
-        "y": 0
+        "y": 7
       },
       "id": 3,
       "options": {
@@ -117,7 +227,7 @@
         "h": 4,
         "w": 3,
         "x": 3,
-        "y": 0
+        "y": 7
       },
       "id": 1,
       "options": {
@@ -187,7 +297,7 @@
         "h": 4,
         "w": 3,
         "x": 6,
-        "y": 0
+        "y": 7
       },
       "id": 2,
       "options": {
@@ -226,22 +336,22 @@
     },
     {
       "datasource": {
-        "type": "prometheus",
-        "uid": "bedjak305o45cc"
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres_datasource"
       },
       "fieldConfig": {
         "defaults": {
           "color": {
-            "fixedColor": "red",
-            "mode": "fixed"
+            "fixedColor": "blue",
+            "mode": "shades"
           },
           "custom": {
             "axisBorderShow": false,
             "axisCenteredZero": false,
-            "axisColorMode": "series",
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
-            "fillOpacity": 63,
+            "fillOpacity": 80,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -267,44 +377,18 @@
             ]
           }
         },
-        "overrides": [
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "Value (mean)"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
         "w": 15,
         "x": 9,
-        "y": 0
+        "y": 7
       },
-      "id": 7,
+      "id": 10,
       "options": {
         "barRadius": 0,
         "barWidth": 0.97,
-        "colorByField": "day",
         "fullHighlight": false,
         "groupWidth": 0.7,
         "legend": {
@@ -314,7 +398,7 @@
           "showLegend": true
         },
         "orientation": "auto",
-        "showValue": "never",
+        "showValue": "auto",
         "stacking": "none",
         "tooltip": {
           "hideZeros": false,
@@ -323,46 +407,48 @@
         },
         "xField": "day",
         "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 200
+        "xTickLabelSpacing": 0
       },
       "pluginVersion": "11.5.1",
       "targets": [
         {
-          "disableTextWrap": false,
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres_datasource"
+          },
           "editorMode": "code",
-          "exemplar": false,
-          "expr": "sum by(day) (ads_impressions_total)",
           "format": "table",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "instant": false,
-          "interval": "",
-          "legendFormat": "__auto",
-          "range": true,
+          "rawQuery": true,
+          "rawSql": "SELECT\r\n  \"date\" AS \"day\",\r\n  COUNT(*) AS \"impressions\"\r\nFROM\r\n  history_impressions\r\nGROUP BY\r\n  \"date\"\r\nORDER BY\r\n  \"date\" ASC",
           "refId": "A",
-          "useBackend": false
+          "sql": {
+            "columns": [
+              {
+                "name": "SUM",
+                "parameters": [
+                  {
+                    "name": "cost",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "name": "date",
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
+          "table": "history_impressions"
         }
       ],
       "title": "Viewed count by day",
-      "transformations": [
-        {
-          "id": "groupBy",
-          "options": {
-            "fields": {
-              "Value": {
-                "aggregations": [
-                  "mean"
-                ],
-                "operation": "aggregate"
-              },
-              "day": {
-                "aggregations": [],
-                "operation": "groupby"
-              }
-            }
-          }
-        }
-      ],
       "type": "barchart"
     },
     {
@@ -392,7 +478,7 @@
         "h": 4,
         "w": 3,
         "x": 0,
-        "y": 4
+        "y": 11
       },
       "id": 4,
       "options": {
@@ -457,7 +543,7 @@
         "h": 4,
         "w": 3,
         "x": 3,
-        "y": 4
+        "y": 11
       },
       "id": 5,
       "options": {
@@ -515,7 +601,8 @@
                 "value": null
               }
             ]
-          }
+          },
+          "unit": "currencyUSD"
         },
         "overrides": []
       },
@@ -523,7 +610,7 @@
         "h": 4,
         "w": 3,
         "x": 6,
-        "y": 4
+        "y": 11
       },
       "id": 6,
       "options": {
@@ -557,7 +644,7 @@
           "useBackend": false
         }
       ],
-      "title": "earnings",
+      "title": "revenue",
       "type": "stat"
     },
     {
@@ -603,7 +690,7 @@
         "h": 8,
         "w": 9,
         "x": 0,
-        "y": 8
+        "y": 15
       },
       "id": 8,
       "options": {
@@ -644,19 +731,19 @@
     },
     {
       "datasource": {
-        "type": "prometheus",
-        "uid": "bedjak305o45cc"
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres_datasource"
       },
       "fieldConfig": {
         "defaults": {
           "color": {
-            "fixedColor": "blue",
-            "mode": "fixed"
+            "fixedColor": "purple",
+            "mode": "shades"
           },
           "custom": {
             "axisBorderShow": false,
             "axisCenteredZero": false,
-            "axisColorMode": "series",
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "fillOpacity": 80,
@@ -674,7 +761,6 @@
               "mode": "off"
             }
           },
-          "fieldMinMax": false,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -692,13 +778,12 @@
         "h": 8,
         "w": 15,
         "x": 9,
-        "y": 8
+        "y": 15
       },
-      "id": 9,
+      "id": 11,
       "options": {
         "barRadius": 0,
         "barWidth": 0.97,
-        "colorByField": "day",
         "fullHighlight": false,
         "groupWidth": 0.7,
         "legend": {
@@ -708,7 +793,7 @@
           "showLegend": true
         },
         "orientation": "auto",
-        "showValue": "never",
+        "showValue": "auto",
         "stacking": "none",
         "tooltip": {
           "hideZeros": false,
@@ -722,38 +807,35 @@
       "pluginVersion": "11.5.1",
       "targets": [
         {
-          "disableTextWrap": false,
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres_datasource"
+          },
           "editorMode": "code",
-          "expr": "sum by(day) (ads_clicks_total)",
           "format": "table",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "legendFormat": "__auto",
-          "range": true,
+          "rawQuery": true,
+          "rawSql": "SELECT\r\n  \"date\" AS \"day\",\r\n  COUNT(*) AS \"clicks\"\r\nFROM\r\n  history_clicks \r\nGROUP BY\r\n  \"date\"\r\nORDER BY\r\n  \"date\" ASC",
           "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "Clicked count by day",
-      "transformations": [
-        {
-          "id": "groupBy",
-          "options": {
-            "fields": {
-              "Value": {
-                "aggregations": [
-                  "mean"
-                ],
-                "operation": "aggregate"
-              },
-              "day": {
-                "aggregations": [],
-                "operation": "groupby"
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
               }
-            }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
           }
         }
       ],
+      "title": "Clicked count by day",
       "type": "barchart"
     }
   ],

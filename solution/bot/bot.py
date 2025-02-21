@@ -8,21 +8,19 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-API_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-BACKEND_URL = os.getenv("BACKEND_URL")
+API_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "7943694592:AAE1nGTCMqFjTYIsdPg-LflfBOPOzpqJeqA")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8080")
 DATABASE = "clients.db"
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# Хранение ролей пользователей и выбранных клиентов/рекламодателей
-user_roles = {}      # {user_id: "client" или "advertiser"}
-selected_clients = {}  # для клиентов
-selected_advertisers = {}  # для рекламодателей (если нужно)
+user_roles = {}
+selected_clients = {}
+selected_advertisers = {}
 
 async def init_db():
     async with aiosqlite.connect(DATABASE) as db:
-        # Таблица клиентов (пример)
         await db.execute(
             """
             CREATE TABLE IF NOT EXISTS clients (
@@ -46,70 +44,97 @@ async def start_command(message: Message):
     ])
     await message.answer("Выберите вашу роль:", reply_markup=keyboard)
 
+
 @dp.callback_query(lambda c: c.data.startswith("role:"))
 async def set_role(callback: types.CallbackQuery):
     role = callback.data.split(":")[1]
     user_id = callback.from_user.id
     user_roles[user_id] = role
+
     # Формируем меню в зависимости от роли
     if role == "client":
-        buttons = ["Создать клиента", "Список клиентов", "Выбрать клиента", "Получить рекламу"]
+        buttons = [
+            "🆕 Создать клиента",
+            "📋 Список клиентов",
+            "✅ Выбрать клиента",
+            "🎯 Получить рекламу"
+        ]
     else:
-        buttons = ["Создать рекламодателя", "Создать рекламу", "Сгенерировать текст рекламы", "Изменить рекламу"]
+        buttons = [
+            "🏢 Создать рекламодателя",
+            "📢 Создать рекламу",
+            "✍️ Сгенерировать текст рекламы",
+            "🛠 Изменить рекламу"
+        ]
+
     keyboard = ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text=b)] for b in buttons],
         resize_keyboard=True
     )
-    await callback.message.answer(f"Вы выбрали роль: {role}.", reply_markup=keyboard)
+
+    await callback.message.answer(f"✅ Вы выбрали роль: `{role}`.", reply_markup=keyboard)
+
 
 # -------------------------
 # Обработчики для клиента
 # -------------------------
-@dp.message(lambda msg: msg.text == "Создать клиента" and user_roles.get(msg.from_user.id) == "client")
+@dp.message(lambda msg: msg.text == "🆕 Создать клиента" and user_roles.get(msg.from_user.id) == "client")
 async def create_client(message: Message):
     user_id = message.from_user.id
-    # Проверяем, сколько клиентов уже создано
     async with aiosqlite.connect(DATABASE) as db:
         cursor = await db.execute("SELECT COUNT(*) FROM clients WHERE user_id = ?", (user_id,))
         client_count = (await cursor.fetchone())[0]
     if client_count >= 10:
-        await message.answer("Вы уже создали максимальное количество клиентов (10).")
+        await message.answer("❌ Вы уже создали максимальное количество клиентов (10).")
         return
     await message.answer(
-        "Введите данные клиента в формате:\n"
-        "`Имя:TestUser\nВозраст:25\nГород:Москва\nПол:MALE`"
+        "🔹 Введите данные клиента в следующем формате:\n\n"
+        "🔹 `name:TestUser` - имя клиента\n"
+        "🔹 `age:25` - возраст клиента\n"
+        "🔹 `city:Москва` - город проживания\n"
+        "🔹 `gender:male` - пол (MALE, FEMALE)\n\n"
+        "📌 Пример ввода:\n"
+        "```\n"
+        "name:Иван\n"
+        "age:30\n"
+        "city:Москва\n"
+        "gender:MALE\n"
+        "```"
     )
 
-@dp.message(lambda msg: "Имя:" in msg.text and "Возраст:" in msg.text and user_roles.get(msg.from_user.id) == "client")
+@dp.message(lambda msg: "name:" in msg.text and "age:" in msg.text and user_roles.get(msg.from_user.id) == "client")
 async def save_client(message: Message):
     lines = message.text.split("\n")
     data_map = {}
     for line in lines:
         key_val = line.split(":", 1)
         if len(key_val) == 2:
-            data_map[key_val[0].strip()] = key_val[1].strip()
+            data_map[key_val[0].strip().lower()] = key_val[1].strip()  # Приводим ключи к нижнему регистру
+
     new_id = str(uuid.uuid4())
     client_data = {
         "client_id": new_id,
-        "login": data_map.get("Имя", "Unknown"),
-        "age": int(data_map.get("Возраст", 0)),
-        "location": data_map.get("Город", "Unknown"),
-        "gender": data_map.get("Пол", "MALE"),
+        "login": data_map.get("name", "Unknown"),
+        "age": int(data_map.get("age", 0)),
+        "location": data_map.get("city", "Unknown"),
+        "gender": data_map.get("gender", "male"),
         "user_id": message.from_user.id
     }
+
     async with aiosqlite.connect(DATABASE) as db:
         await db.execute(
             "INSERT INTO clients (client_id, login, age, location, gender, user_id) VALUES (?, ?, ?, ?, ?, ?)",
             (client_data["client_id"], client_data["login"], client_data["age"], client_data["location"], client_data["gender"], client_data["user_id"])
         )
         await db.commit()
+
     response = await send_client_to_microservice(client_data)
     if response:
-        await message.answer(f"Клиент создан с ID: {new_id} и отправлен в микросервис.")
+        await message.answer(f"✅ Клиент создан с ID: `{new_id}`")
     else:
-        await message.answer(f"Клиент создан с ID: {new_id}, но не удалось отправить в микросервис.")
+        await message.answer(f"⚠️ Ошибка при создании клиента.")
 
-@dp.message(lambda msg: msg.text == "Список клиентов" and user_roles.get(msg.from_user.id) == "client")
+@dp.message(lambda msg: msg.text == "📋 Список клиентов" and user_roles.get(msg.from_user.id) == "client")
 async def list_clients(message: Message):
     user_id = message.from_user.id
     async with aiosqlite.connect(DATABASE) as db:
@@ -121,7 +146,7 @@ async def list_clients(message: Message):
     text_list = [f"{i + 1}. {login}" for i, (_, login) in enumerate(clients)]
     await message.answer("Список клиентов (макс. 10):\n" + "\n".join(text_list))
 
-@dp.message(lambda msg: msg.text == "Выбрать клиента" and user_roles.get(msg.from_user.id) == "client")
+@dp.message(lambda msg: msg.text == "✅ Выбрать клиента" and user_roles.get(msg.from_user.id) == "client")
 async def prompt_select_client(message: Message):
     user_id = message.from_user.id
     async with aiosqlite.connect(DATABASE) as db:
@@ -147,7 +172,7 @@ async def set_selected_client(callback: types.CallbackQuery):
     else:
         await callback.message.answer("Такого клиента не существует.")
 
-@dp.message(lambda msg: msg.text == "Получить рекламу" and user_roles.get(msg.from_user.id) == "client")
+@dp.message(lambda msg: msg.text == "🎯 Получить рекламу" and user_roles.get(msg.from_user.id) == "client")
 async def get_ads(message: Message):
     user_id = message.from_user.id
     client_id = selected_clients.get(user_id)
@@ -204,7 +229,7 @@ async def update_campaign_on_backend(advertiser_id: str, campaign_id: str, campa
             else:
                 return None
 
-@dp.message(lambda msg: msg.text == "Создать рекламодателя" and user_roles.get(msg.from_user.id) == "advertiser")
+@dp.message(lambda msg: msg.text == "🏢 Создать рекламодателя" and user_roles.get(msg.from_user.id) == "advertiser")
 async def create_advertiser(message: Message):
     await message.answer("Введите данные рекламодателя в формате:\n`Имя:TestAdvertiser`")
 
@@ -226,11 +251,11 @@ async def save_advertiser(message: Message):
     if response:
         # Сохраняем выбранного рекламодателя, если необходимо
         selected_advertisers[message.from_user.id] = new_id
-        await message.answer(f"Рекламодатель создан с ID: {new_id} и отправлен в микросервис.")
+        await message.answer(f"Рекламодатель создан с ID: {new_id}")
     else:
         await message.answer("Ошибка при создании рекламодателя.")
 
-@dp.message(lambda msg: msg.text == "Создать рекламу" and user_roles.get(msg.from_user.id) == "advertiser")
+@dp.message(lambda msg: msg.text == "📢 Создать рекламу" and user_roles.get(msg.from_user.id) == "advertiser")
 async def create_campaign(message: Message):
     user_id = message.from_user.id
     advertiser_id = selected_advertisers.get(user_id)
@@ -245,11 +270,12 @@ async def create_campaign(message: Message):
         "🔹 `cost_per_click:0.5` - цена за 1 клик (в у.е.)\n"
         "🔹 `ad_title:Название рекламы` - заголовок объявления\n"
         "🔹 `ad_text:Описание рекламы` - текст объявления\n"
-        "🔹 `start_date:1672531200` - дата начала (UNIX timestamp)\n"
-        "🔹 `end_date:1672617600` - дата окончания (UNIX timestamp)\n"
-        "🔹 `target_age:18-35` - возрастная аудитория (необязательно)\n"
+        "🔹 `start_date:1672531200` - дата начала \n"
+        "🔹 `end_date:1672617600` - дата окончания \n"
+        "🔹 `target_age_from:18` - минимальный возраст аудитории (необязательно)\n"
+        "🔹 `target_age_to:35` - максимальный возраст аудитории (необязательно)\n"
         "🔹 `target_location:Москва` - геотаргетинг (необязательно)\n"
-        "🔹 `target_gender:male` - пол (male, female, any) (необязательно)\n\n"
+        "🔹 `target_gender:male` - пол (MALE, FEMALE, ALL) (необязательно)\n\n"
         "📌 Пример ввода:\n"
         "```\n"
         "impressions_limit:1000\n"
@@ -260,9 +286,10 @@ async def create_campaign(message: Message):
         "ad_text:Только сегодня скидки до 50%!\n"
         "start_date:1714060800\n"
         "end_date:1714233600\n"
-        "target_age:18-35\n"
+        "target_age_from:18\n"
+        "target_age_to:35\n"
         "target_location:Москва\n"
-        "target_gender:any\n"
+        "target_gender:ALL\n"
         "```"
     )
 
@@ -283,7 +310,8 @@ async def save_campaign(message: Message):
 
     # Формируем таргетинг
     targeting = {
-        "age": data_map.get("target_age", ""),
+        "age_from": int(data_map.get("target_age_from", 0)),
+        "age_to": int(data_map.get("target_age_to", 0)),
         "location": data_map.get("target_location", ""),
         "gender": data_map.get("target_gender", "")
     }
@@ -302,16 +330,39 @@ async def save_campaign(message: Message):
 
     response = await create_campaign_on_backend(advertiser_id, campaign_request)
     if response:
-        await message.answer(f"Кампания создана:\nID: {response.get('campaign_id')}\nТаргетинг: {targeting}")
+        await message.answer(f"Кампания создана:\nID: {response.get('campaign_id')}")
     else:
         await message.answer("Ошибка при создании кампании.")
 
-@dp.message(lambda msg: msg.text == "Изменить рекламу" and user_roles.get(msg.from_user.id) == "advertiser")
+@dp.message(lambda msg: msg.text == "🛠 Изменить рекламу" and user_roles.get(msg.from_user.id) == "advertiser")
 async def modify_campaign(message: Message):
     await message.answer(
-        "Введите данные для изменения кампании в формате:\n"
-        "`campaign_id:ID_Кампании\ncost_per_impression:0.04\ncost_per_click:0.4\n"
-        "ad_title:Новый заголовок\nad_text:Новый текст\nstart_date:1672531200\nend_date:1672617600`"
+        "Введите данные для изменения кампании в следующем формате:\n\n"
+        "🔹 `campaign_id: ID_Кампании` - ID кампании для обновления\n"
+        "🔹 `cost_per_impression: 0.04` - новая цена за показ\n"
+        "🔹 `cost_per_click: 0.4` - новая цена за клик\n"
+        "🔹 `ad_title: Новый заголовок` - новый заголовок рекламы\n"
+        "🔹 `ad_text: Новый текст` - новый текст рекламы\n"
+        "🔹 `start_date: 1672531200` - новое время начала (UNIX timestamp)\n"
+        "🔹 `end_date: 1672617600` - новое время окончания (UNIX timestamp)\n"
+        "🔹 `target_age_from: 18` - минимальный возраст аудитории (необязательно)\n"
+        "🔹 `target_age_to: 35` - максимальный возраст аудитории (необязательно)\n"
+        "🔹 `target_location: Москва` - геотаргетинг (необязательно)\n"
+        "🔹 `target_gender: ALL` - пол аудитории (MALE, FEMALE, ALL) (необязательно)\n\n"
+        "📌 Пример ввода:\n"
+        "```\n"
+        "campaign_id: 12345\n"
+        "cost_per_impression: 0.05\n"
+        "cost_per_click: 0.5\n"
+        "ad_title: Новая реклама\n"
+        "ad_text: Обновленное описание рекламы\n"
+        "start_date: 1714060800\n"
+        "end_date: 1714233600\n"
+        "target_age_from: 18\n"
+        "target_age_to: 35\n"
+        "target_location: Москва\n"
+        "target_gender: ALL\n"
+        "```"
     )
 
 @dp.message(lambda msg: "campaign_id:" in msg.text and user_roles.get(msg.from_user.id) == "advertiser")
@@ -321,25 +372,38 @@ async def save_campaign_update(message: Message):
     if not advertiser_id:
         await message.answer("Сначала создайте рекламодателя.")
         return
+
     lines = message.text.split("\n")
     data_map = {}
     for line in lines:
         if ":" in line:
             key, value = line.split(":", 1)
             data_map[key.strip()] = value.strip()
+
     campaign_id = data_map.get("campaign_id")
     if not campaign_id:
         await message.answer("Не указан campaign_id.")
         return
-    campaign_update = {
-        "cost_per_impression": float(data_map.get("cost_per_impression", 0)),
-        "cost_per_click": float(data_map.get("cost_per_click", 0)),
-        "ad_title": data_map.get("ad_title", ""),
-        "ad_text": data_map.get("ad_text", ""),
-        "start_date": int(data_map.get("start_date", 0)),
-        "end_date": int(data_map.get("end_date", 0)),
-        "targeting": {}
-    }
+
+    try:
+        campaign_update = {
+            "cost_per_impression": float(data_map.get("cost_per_impression", 0)),
+            "cost_per_click": float(data_map.get("cost_per_click", 0)),
+            "ad_title": data_map.get("ad_title", ""),
+            "ad_text": data_map.get("ad_text", ""),
+            "start_date": int(data_map.get("start_date", 0)),
+            "end_date": int(data_map.get("end_date", 0)),
+            "targeting": {
+                "age_from": int(data_map.get("target_age_from", 0)),
+                "age_to": int(data_map.get("target_age_to", 0)),
+                "location": data_map.get("target_location", ""),
+                "gender": data_map.get("target_gender", "")
+            }
+        }
+    except ValueError as e:
+        await message.answer(f"Ошибка в данных: {e}")
+        return
+
     response = await update_campaign_on_backend(advertiser_id, campaign_id, campaign_update)
     if response:
         await message.answer(f"Кампания обновлена: {response}")

@@ -10,3 +10,19 @@ datasources:
     updateIntervalSeconds: 10
     jsonData:
       timeInterval: "5s"
+
+  - name: PostgreSQL
+    type: postgres
+    uid: postgres_datasource
+    access: proxy
+    url: statistic-db:5432
+    database: statistic_db
+    isDefault: false
+    editable: true
+    jsonData:
+      sslmode: disable
+      timeInterval: "5s"
+    secureJsonData:
+      password: "statistic_password"
+    basicAuth: false
+    user: "statistic_user"
