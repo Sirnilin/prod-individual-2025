@@ -238,7 +238,13 @@ public class AdsService {
         float mlPart = 0.25f * normalizedMlScore;
 
         float limitPenalty;
-        if (campaign.getCountImpressions() == 0) {
+        if (campaign.getCountImpressions() >= campaign.getImpressionsLimit()) {
+            limitPenalty = isViewed ? 0.25f : 0;
+
+            if (limitPenalty == 0 && error <= 0.045) {
+                limitPenalty = 0.000001f;
+            }
+        } else if (campaign.getCountImpressions() == 0) {
             limitPenalty = 1;
         } else {
             float impressionRatio = (campaign.getImpressionsLimit() != 0)
@@ -256,15 +262,6 @@ public class AdsService {
             limitPenalty = impressionPenalty * remainingFactor;
         }
 
-        if (isViewed) {
-            limitPenalty = 0.5f + 0.5f * limitPenalty;
-            if (campaign.getCountImpressions() >= campaign.getImpressionsLimit()) {
-                limitPenalty = 0;
-            }
-        }
-
-        System.out.println("Campaign: " + campaign.getCampaignId() +
-                " Score: " + ((baseCost + mlPart) * limitPenalty));
         return (baseCost + mlPart) * limitPenalty;
     }
 
