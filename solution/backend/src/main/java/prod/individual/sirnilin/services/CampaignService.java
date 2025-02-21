@@ -69,8 +69,8 @@ public class CampaignService {
         campaign.setAdvertiserId(advertiserId);
         campaign.setImpressionsLimit(request.getImpressionsLimit());
         campaign.setClicksLimit(request.getClicksLimit());
-        campaign.setCostPerImpression(request.getCostPerImpression()*3);
-        campaign.setCostPerClick(request.getCostPerClick()*3);
+        campaign.setCostPerImpression(request.getCostPerImpression());
+        campaign.setCostPerClick(request.getCostPerClick());
         campaign.setAdTitle(request.getAdTitle());
         campaign.setAdText(request.getAdText());
         campaign.setStartDate(request.getStartDate());

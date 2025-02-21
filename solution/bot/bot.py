@@ -1,4 +1,6 @@
 import asyncio
+import io
+import matplotlib.pyplot as plt
 import json
 import logging
 import os
@@ -20,6 +22,24 @@ user_roles = {}
 selected_clients = {}
 selected_advertisers = {}
 pending_ad_text_generation = {}
+
+
+def create_chart(data):
+    # data: словарь с ключами 'dates', 'impressions' и 'clicks'
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(data['dates'], data['impressions'], label='Показы', marker='o')
+    ax.plot(data['dates'], data['clicks'], label='Клики', marker='o')
+    ax.set_xlabel('Дата')
+    ax.set_ylabel('Количество')
+    ax.set_title('Дневная статистика')
+    ax.legend()
+
+    # Сохраняем график в буфер
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    plt.close(fig)
+    return buf
 
 async def init_db():
     async with aiosqlite.connect(DATABASE) as db:
@@ -66,7 +86,8 @@ async def set_role(callback: types.CallbackQuery):
             "🏢 Создать рекламодателя",
             "📢 Создать рекламу",
             "✍️ Сгенерировать текст рекламы",
-            "🛠 Изменить рекламу"
+            "🛠 Изменить рекламу",
+            "📊 График статистики"
         ]
 
     keyboard = ReplyKeyboardMarkup(
@@ -461,6 +482,33 @@ async def process_ad_text_generation(message: Message):
                         await message.answer(f"Получен неожиданный ответ:\n{text_response}")
             else:
                 await message.answer("Ошибка при генерации текста рекламы.")
+
+@dp.message(lambda msg: msg.text == "📊 График статистики" and user_roles.get(msg.from_user.id) == "advertiser")
+async def send_stats_chart(message: types.Message):
+    advertiser_id = selected_advertisers.get(message.from_user.id)
+    if not advertiser_id:
+        await message.answer("Сначала создайте или выберите рекламодателя.")
+        return
+
+    async with aiohttp.ClientSession() as session:
+        url = f"{BACKEND_URL}/stats/advertisers/{advertiser_id}/campaigns/daily"
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                stats = await resp.json()
+                # Предполагаем, что stats — это список объектов, содержащих поля 'date', 'impressions_count' и 'clicks_count'
+                dates = [item['date'] for item in stats]
+                impressions = [item.get('impressions_count', 0) for item in stats]
+                clicks = [item.get('clicks_count', 0) for item in stats]
+
+                data = {
+                    'dates': dates,
+                    'impressions': impressions,
+                    'clicks': clicks
+                }
+                chart_buf = create_chart(data)
+                await message.answer_photo(chart_buf)
+            else:
+                await message.answer("Ошибка при получении статистики.")
 
 
 async def send_client_to_microservice(client_data):
