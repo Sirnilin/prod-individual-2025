@@ -257,7 +257,7 @@ public class AdsService {
             float remainingRatio = (campaign.getImpressionsLimit() != 0)
                     ? (float) remaining / campaign.getImpressionsLimit()
                     : 0;
-            float remainingFactor = 3.5f + 0.5f * remainingRatio;
+            float remainingFactor = 0.5f + 1.5f * remainingRatio;
 
             limitPenalty = impressionPenalty * remainingFactor;
         }
