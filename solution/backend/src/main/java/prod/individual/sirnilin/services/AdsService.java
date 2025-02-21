@@ -259,7 +259,7 @@ public class AdsService {
                 return 0;
             }
 
-            t = (float) (1 - error*10);
+            t = (float) (error*10);
         }
 
         float score = (baseCost + mlPart) * limitPenalty * t;
