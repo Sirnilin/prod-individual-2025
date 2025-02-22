@@ -268,7 +268,7 @@ public class AdsService {
 
         ForkJoinPool customThreadPool = new ForkJoinPool(8);
         try {
-            return customThreadPool.submit(() ->
+            CampaignModel bestCampaign = customThreadPool.submit(() ->
                     matchingAds.parallelStream()
                             .filter(campaign -> campaign.getCountImpressions() < campaign.getImpressionsLimit()) // Проверка лимита показов
                             .map(campaign -> {
@@ -281,6 +281,23 @@ public class AdsService {
                             .map(AbstractMap.SimpleEntry::getKey)
                             .orElse(null)
             ).join();
+
+            if (bestCampaign == null) {
+                bestCampaign = customThreadPool.submit(() ->
+                        matchingAds.parallelStream()
+                                .map(campaign -> {
+                                    int mlScore = mlScoreMap.getOrDefault(campaign.getAdvertiserId(), 0);
+                                    float score = computeScore(campaign, mlScore, error, isViewed);
+                                    return new AbstractMap.SimpleEntry<>(campaign, score);
+                                })
+                                .max(Comparator.comparing(AbstractMap.SimpleEntry::getValue))
+                                .filter(entry -> entry.getValue() > 0)
+                                .map(AbstractMap.SimpleEntry::getKey)
+                                .orElse(null)
+                ).join();
+            }
+
+            return bestCampaign;
         } finally {
             customThreadPool.shutdown();
         }
