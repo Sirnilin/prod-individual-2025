@@ -270,6 +270,7 @@ public class AdsService {
         try {
             return customThreadPool.submit(() ->
                     matchingAds.parallelStream()
+                            .filter(campaign -> campaign.getCountImpressions() < campaign.getImpressionsLimit()) // Проверка лимита показов
                             .map(campaign -> {
                                 int mlScore = mlScoreMap.getOrDefault(campaign.getAdvertiserId(), 0);
                                 float score = computeScore(campaign, mlScore, error, isViewed);
