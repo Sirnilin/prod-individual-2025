@@ -241,18 +241,10 @@ public class AdsService {
         if (isViewed) {
             limitPenalty = 1.0f;
         } else if (campaign.getCountImpressions() >= campaign.getImpressionsLimit()) {
-            float overLimit = Math.max(1, campaign.getCountImpressions() - campaign.getImpressionsLimit());
-            limitPenalty = (float) Math.exp(-5 * overLimit / (float) campaign.getImpressionsLimit());
+            return 0;
         } else {
             float remainingRatio = (campaign.getImpressionsLimit() - campaign.getCountImpressions()) / (float) campaign.getImpressionsLimit();
             limitPenalty = 0.5f + 0.5f * remainingRatio;
-        }
-
-        float errorFactor = (error > 0.03) ? 0.75f : 1.0f;
-        limitPenalty *= errorFactor;
-
-        if (campaign.getCountImpressions() >= campaign.getImpressionsLimit() && error >= 0.05) {
-            return 0;
         }
 
         return (baseCost + mlPart) * limitPenalty;
